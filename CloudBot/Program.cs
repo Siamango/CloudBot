@@ -5,6 +5,15 @@ using Discord;
 using Discord.Commands;
 using System.Reflection;
 
+void OnShutdown(IServiceProvider services)
+{
+    var preferencesRepo = services.GetService<IRepository<Preferences>>();
+    if (preferencesRepo is not null)
+    {
+        preferencesRepo.Save();
+    }
+}
+
 var host = Host.CreateDefaultBuilder()
     .ConfigureAppConfiguration((config) =>
         config.SetBasePath(Directory.GetCurrentDirectory())
@@ -17,13 +26,15 @@ var host = Host.CreateDefaultBuilder()
         services.AddSingleton<ICoreRunner, BotCoreRunner>();
         services.AddSingleton<IRepository<Preferences>>(new RepositoryJson<Preferences>(context.Configuration.GetValue<string>("Paths:PreferencesPath")));
         services.AddScoped<IMessageDispatchMiddleware, WhitelistMessageDispatchMiddleware>();
-        services.AddSingleton(new CommandService(new CommandServiceConfig
-        {
-            LogLevel = LogSeverity.Info,
-            CaseSensitiveCommands = false
-        }));
+        services.AddSingleton(new CommandService(new CommandServiceConfig { LogLevel = LogSeverity.Info, CaseSensitiveCommands = false }));
     })
     .Build();
+
+var applicationLifetime = host.Services.GetService<IHostApplicationLifetime>();
+if (applicationLifetime != null)
+{
+    applicationLifetime.ApplicationStopping.Register(() => OnShutdown(host.Services));
+}
 
 var core = host.Services.GetService<ICoreRunner>();
 
