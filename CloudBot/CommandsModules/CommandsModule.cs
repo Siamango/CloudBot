@@ -20,20 +20,28 @@ public class CommandsModule : ModuleBase<SocketCommandContext>
     [Command("Help")]
     public async Task Help()
     {
-        List<CommandInfo> commands = commandsService.Commands.ToList();
-        EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.WithColor(Constants.AccentColor);
-        foreach (CommandInfo command in commands)
+        List<CommandInfo> commands = new List<CommandInfo>();
+        List<CommandInfo> adminCommands = new List<CommandInfo>();
+        EmbedBuilder commandsEmbedBuilder = new EmbedBuilder();
+        EmbedBuilder adminCommandsEmbedBuilder = new EmbedBuilder();
+        commandsEmbedBuilder.WithColor(Constants.AccentColorFirst);
+        adminCommandsEmbedBuilder.WithColor(Constants.AccentColorSecond);
+
+        foreach (CommandInfo command in commandsService.Commands.ToList())
         {
             bool adminOnly = command.Preconditions.FirstOrDefault(a => a is RequireUserPermissionAttribute attribute && attribute.GuildPermission == GuildPermission.Administrator) is not null;
             string tile = command.Name;
             string embedFieldText = command.Summary ?? "No description available\n";
             if (adminOnly)
             {
-                tile += " | `admin`";
+                adminCommandsEmbedBuilder.AddField(tile, embedFieldText);
             }
-            embedBuilder.AddField(tile, embedFieldText);
+            else
+            {
+                commandsEmbedBuilder.AddField(tile, embedFieldText);
+            }
         }
-        await ReplyAsync("This is what I can do: ", false, embedBuilder.Build());
+        await ReplyAsync("This is what I can do: ", false, commandsEmbedBuilder.Build());
+        await ReplyAsync("This is for admins: ", false, adminCommandsEmbedBuilder.Build());
     }
 }

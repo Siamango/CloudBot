@@ -1,30 +1,22 @@
-﻿using CloudBot.Handlers;
-using CloudBot.CommandsModules;
+﻿using CloudBot.CommandsModules;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CloudBot.Services;
 
 public class BotCoreRunner : ICoreRunner
 {
     private readonly IServiceProvider services;
+    private readonly IEnumerable<IMessageDispatchMiddleware> dispatchMiddlewares;
     private readonly IConfiguration configuration;
     private readonly ILogger<BotCoreRunner> logger;
-    private readonly CommandService commandsService;
+    private readonly CommandService commandService;
     private readonly DiscordSocketClient client;
 
-    public BotCoreRunner(IServiceProvider services, IConfiguration configuration, ILogger<BotCoreRunner> logger)
+    public BotCoreRunner(IServiceProvider services, IEnumerable<IMessageDispatchMiddleware> dispatchMiddlewares, CommandService commandService, IConfiguration configuration, ILogger<BotCoreRunner> logger)
     {
-        this.services = services;
+        this.dispatchMiddlewares = dispatchMiddlewares;
         this.configuration = configuration;
         this.logger = logger;
 
@@ -34,16 +26,13 @@ public class BotCoreRunner : ICoreRunner
             GatewayIntents = GatewayIntents.AllUnprivileged,
             LogLevel = LogSeverity.Info,
         });
-
-        var commandService = services.GetService<CommandService>();
-        if (commandService == null)
-        {
-            throw new Exception("Null command service");
-        }
-        commandsService = commandService;
-        commandsService.Log += Log;
+        this.commandService = commandService;
+        this.commandService.Log += Log;
         client.Log += Log;
         client.MessageReceived += HandleMessageAsync;
+
+        client.SetGameAsync("⚡ Zapping Citizens ⚡");
+        this.services = services;
     }
 
     public async Task RunAsync()
@@ -57,30 +46,29 @@ public class BotCoreRunner : ICoreRunner
 
     private async Task ConfigureCommandsModules()
     {
-        await commandsService.AddModuleAsync<EndpointModule>(services);
-        await commandsService.AddModuleAsync<AdminCommandsModule>(services);
-        await commandsService.AddModuleAsync<CommandsModule>(services);
+        await commandService.AddModuleAsync<EndpointModule>(services);
+        await commandService.AddModuleAsync<AdminCommandsModule>(services);
+        await commandService.AddModuleAsync<CommandsModule>(services);
     }
 
-    private async Task HandleMessageAsync(SocketMessage arg)
+    private async Task HandleMessageAsync(SocketMessage socketMessage)
     {
-        if (arg is not SocketUserMessage msg) return;
+        if (socketMessage is not SocketUserMessage userMessage) return;
 
-        if (msg.Author.Id == client.CurrentUser.Id || msg.Author.IsBot) return;
+        if (userMessage.Author.Id == client.CurrentUser.Id || userMessage.Author.IsBot) return;
 
-        var messageHandler = services.GetService<IMessageDispatchHandler>();
-        if (messageHandler is not null)
+        foreach (var middleware in dispatchMiddlewares)
         {
-            var res = await messageHandler.Handle(arg);
-            if (!res) return;
+            await middleware.Handle(socketMessage);
         }
+
         int pos = 0;
-        if (msg.HasStringPrefix("cb.", ref pos))
+        if (userMessage.HasStringPrefix("cb.", ref pos))
         {
-            var context = new SocketCommandContext(client, msg);
-            var result = await commandsService.ExecuteAsync(context, pos, services);
+            var context = new SocketCommandContext(client, userMessage);
+            var result = await commandService.ExecuteAsync(context, pos, services);
             if (!result.IsSuccess && result.Error != CommandError.UnknownCommand)
-                await msg.Channel.SendMessageAsync(result.ErrorReason);
+                await userMessage.Channel.SendMessageAsync(result.ErrorReason);
         }
     }
 
@@ -89,27 +77,27 @@ public class BotCoreRunner : ICoreRunner
         switch (message.Severity)
         {
             case LogSeverity.Critical:
-                logger.LogCritical($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogCritical("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
 
             case LogSeverity.Error:
-                logger.LogError($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogError("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
 
             case LogSeverity.Warning:
-                logger.LogWarning($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogWarning("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
 
             case LogSeverity.Info:
-                logger.LogInformation($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogInformation("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
 
             case LogSeverity.Verbose:
-                logger.LogTrace($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogTrace("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
 
             case LogSeverity.Debug:
-                logger.LogDebug($"{DateTime.Now,-19} [{message.Severity,8}] {message.Source}: {message.Message} {message.Exception}");
+                logger.LogDebug("{date,-19} [{severity,8}] {source}: {message} {exception}", DateTime.Now, message.Severity, message.Source, message.Message, message.Exception);
                 break;
         }
         return Task.CompletedTask;

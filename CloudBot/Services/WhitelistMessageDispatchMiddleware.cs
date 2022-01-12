@@ -8,64 +8,63 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace CloudBot.Handlers;
+namespace CloudBot.Services;
 
-public class MessageDispatchHandler : IMessageDispatchHandler
+public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
 {
+    private static readonly Emoji successEmoji = new Emoji("☑");
+    private static readonly Emoji failureEmoji = new Emoji("❌");
+
     private readonly HttpClient httpClient;
-    private readonly IServiceProvider services;
-    private readonly IConfiguration configuration;
     private readonly IRepository<Preferences> preferencesRepository;
 
-    public MessageDispatchHandler(IServiceProvider services, IConfiguration configuration, IRepository<Preferences> preferencesRepository)
+    public WhitelistMessageDispatchMiddleware(IConfiguration configuration, IRepository<Preferences> preferencesRepository)
     {
         httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
         httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        this.services = services;
-        this.configuration = configuration;
         this.preferencesRepository = preferencesRepository;
     }
 
-    public async Task<bool> Handle(SocketMessage message)
+    public async Task Handle(SocketMessage message)
     {
         Regex whitelistChannelRegex = new Regex(preferencesRepository.Data.WhitelistChannelName);
-        if (preferencesRepository.Data.WhitelistChannelName == string.Empty || !whitelistChannelRegex.IsMatch(message.Channel.Name)) return true;
+        if (preferencesRepository.Data.WhitelistChannelName == string.Empty || !whitelistChannelRegex.IsMatch(message.Channel.Name)) return;
         var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={message.Content}");
         if (!response.IsSuccessStatusCode)
         {
-            await message.AddReactionAsync(new Emoji("❌"));
-            return true;
+            await message.AddReactionAsync(failureEmoji);
+            return;
         }
         var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
         if (model == null)
         {
-            await message.AddReactionAsync(new Emoji("❌"));
-            return true;
+            await message.AddReactionAsync(failureEmoji);
+            return;
         }
         if (model.Whitelisted == true)
         {
-            await message.AddReactionAsync(new Emoji("☑"));
-            return true;
+            await message.AddReactionAsync(successEmoji);
+            return;
         }
 
         response = await httpClient.GetAsync($"{Endpoints.MEMBERS}");
         if (!response.IsSuccessStatusCode)
         {
-            await message.AddReactionAsync(new Emoji("❌"));
-            return true;
+            await message.AddReactionAsync(failureEmoji);
+            return;
         }
         var members = JsonConvert.DeserializeObject<MembersCountersModel>(await response.Content.ReadAsStringAsync());
-        if (members is null || members.WhitelistedCount < preferencesRepository.Data.WhitelistSize)
+        if (members is null || members.WhitelistedCount >= preferencesRepository.Data.WhitelistSize)
         {
-            await message.AddReactionAsync(new Emoji("❌"));
-            return true;
+            await message.AddReactionAsync(failureEmoji);
+            return;
         }
         model.Whitelisted = true;
         response = await httpClient.PutAsync($"{Endpoints.MEMBERS}", new StringContent(JsonConvert.SerializeObject(model), Encoding.UTF8, "application/json"));
         if (!response.IsSuccessStatusCode)
         {
-            await message.AddReactionAsync(new Emoji("❌"));
+            await message.AddReactionAsync(failureEmoji);
         }
         else
         {
@@ -82,8 +81,8 @@ public class MessageDispatchHandler : IMessageDispatchHandler
                     await guildUser.AddRoleAsync(confirmedRole);
                 }
             }
-            await message.AddReactionAsync(new Emoji("☑"));
+            await message.AddReactionAsync(successEmoji);
         }
-        return true;
+        return;
     }
 }

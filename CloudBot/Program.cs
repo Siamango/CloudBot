@@ -1,6 +1,5 @@
 ﻿using BetterHaveIt.Repositories;
 using CloudBot;
-using CloudBot.Handlers;
 using CloudBot.Services;
 using Discord;
 using Discord.Commands;
@@ -17,7 +16,7 @@ var host = Host.CreateDefaultBuilder()
     {
         services.AddSingleton<ICoreRunner, BotCoreRunner>();
         services.AddSingleton<IRepository<Preferences>>(new RepositoryJson<Preferences>(context.Configuration.GetValue<string>("Paths:PreferencesPath")));
-        services.AddSingleton<IMessageDispatchHandler, MessageDispatchHandler>();
+        services.AddScoped<IMessageDispatchMiddleware, WhitelistMessageDispatchMiddleware>();
         services.AddSingleton(new CommandService(new CommandServiceConfig
         {
             LogLevel = LogSeverity.Info,
@@ -27,6 +26,7 @@ var host = Host.CreateDefaultBuilder()
     .Build();
 
 var core = host.Services.GetService<ICoreRunner>();
+
 if (core != null)
 {
     await core.RunAsync();

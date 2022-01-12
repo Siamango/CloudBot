@@ -28,7 +28,7 @@ public class AdminCommandsModule : ModuleBase<SocketCommandContext>
         {
             preferencesRepo.Data.WhitelistChannelName = channel == null ? string.Empty : channel.Name;
             EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Constants.AccentColor);
+            embedBuilder.WithColor(Constants.AccentColorFirst);
             embedBuilder.AddField("Whitelist confirmation channel", $"<#{(channel == null ? "none" : channel.Id)}>");
             await ReplyAsync(null, false, embedBuilder.Build());
             preferencesRepo.SaveAsync();
@@ -73,7 +73,7 @@ public class AdminCommandsModule : ModuleBase<SocketCommandContext>
             preferencesRepo.Data.WhitelistPendingRoleName = pendingRole == null ? string.Empty : pendingRole.Name;
             preferencesRepo.Data.WhitelistConfirmedRoleName = confirmedRole == null ? string.Empty : confirmedRole.Name;
             EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Constants.AccentColor);
+            embedBuilder.WithColor(Constants.AccentColorFirst);
             embedBuilder.AddField("Whitelisted pending role", (pendingRole != null ? pendingRole.Name : "none"), true);
             embedBuilder.AddField("Whitelisted confirmed role", (confirmedRole != null ? confirmedRole.Name : "none"), true);
             await ReplyAsync(null, false, embedBuilder.Build());
