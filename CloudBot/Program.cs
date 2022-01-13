@@ -1,13 +1,14 @@
 ﻿using BetterHaveIt.Repositories;
 using CloudBot;
 using CloudBot.Services;
+using CloudBot.Statics;
 using Discord;
 using Discord.Commands;
 using System.Reflection;
 
 void OnShutdown(IServiceProvider services)
 {
-    var preferencesRepo = services.GetService<IRepository<Preferences>>();
+    var preferencesRepo = services.GetService<IRepository<WhitelistPreferencesModel>>();
     if (preferencesRepo is not null)
     {
         preferencesRepo.Save();
@@ -23,8 +24,9 @@ var host = Host.CreateDefaultBuilder()
         .AddEnvironmentVariables())
     .ConfigureServices((context, services) =>
     {
+        services.AddSlashCommandsModules();
         services.AddSingleton<ICoreRunner, BotCoreRunner>();
-        services.AddSingleton<IRepository<Preferences>>(new RepositoryJson<Preferences>(context.Configuration.GetValue<string>("Paths:PreferencesPath")));
+        services.AddSingleton<IRepository<WhitelistPreferencesModel>>(new RepositoryJson<WhitelistPreferencesModel>(context.Configuration.GetValue<string>("Paths:PreferencesPath")));
         services.AddScoped<IMessageDispatchMiddleware, WhitelistMessageDispatchMiddleware>();
         services.AddSingleton(new CommandService(new CommandServiceConfig { LogLevel = LogSeverity.Info, CaseSensitiveCommands = false }));
     })

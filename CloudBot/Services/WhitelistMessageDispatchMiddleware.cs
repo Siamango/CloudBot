@@ -6,7 +6,6 @@ using Discord.WebSocket;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace CloudBot.Services;
 
@@ -14,22 +13,22 @@ public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
 {
     private static readonly Emoji successEmoji = new Emoji("☑");
     private static readonly Emoji failureEmoji = new Emoji("❌");
-
+    private readonly ILogger logger;
     private readonly HttpClient httpClient;
-    private readonly IRepository<Preferences> preferencesRepository;
+    private readonly IRepository<WhitelistPreferencesModel> whitelistPrefRepo;
 
-    public WhitelistMessageDispatchMiddleware(IConfiguration configuration, IRepository<Preferences> preferencesRepository)
+    public WhitelistMessageDispatchMiddleware(ILoggerFactory loggerFactory, IConfiguration configuration, IRepository<WhitelistPreferencesModel> whitelistPrefRepo)
     {
         httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
         httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        this.preferencesRepository = preferencesRepository;
+        this.whitelistPrefRepo = whitelistPrefRepo;
+        logger = loggerFactory.CreateLogger("Middleware");
     }
 
     public async Task Handle(SocketMessage message)
     {
-        Regex whitelistChannelRegex = new Regex(preferencesRepository.Data.WhitelistChannelName);
-        if (preferencesRepository.Data.WhitelistChannelName == string.Empty || !whitelistChannelRegex.IsMatch(message.Channel.Name)) return;
+        if (message.Channel.Id != whitelistPrefRepo.Data.ListenChannelId) return;
         var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={message.Content}");
         if (!response.IsSuccessStatusCode)
         {
@@ -55,7 +54,7 @@ public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
             return;
         }
         var members = JsonConvert.DeserializeObject<MembersCountersModel>(await response.Content.ReadAsStringAsync());
-        if (members is null || members.WhitelistedCount >= preferencesRepository.Data.WhitelistSize)
+        if (members is null || members.WhitelistedCount >= whitelistPrefRepo.Data.MaxSize)
         {
             await message.AddReactionAsync(failureEmoji);
             return;
@@ -70,8 +69,8 @@ public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
         {
             if (message.Author is SocketGuildUser guildUser)
             {
-                IRole? pendingRole = guildUser.Guild.Roles.FirstOrDefault(r => r.Name.Equals(preferencesRepository.Data.WhitelistPendingRoleName));
-                IRole? confirmedRole = guildUser.Guild.Roles.FirstOrDefault(r => r.Name.Equals(preferencesRepository.Data.WhitelistConfirmedRoleName));
+                IRole? pendingRole = guildUser.Guild.Roles.FirstOrDefault(r => r.Name.Equals(whitelistPrefRepo.Data.PendingRoleId));
+                IRole? confirmedRole = guildUser.Guild.Roles.FirstOrDefault(r => r.Name.Equals(whitelistPrefRepo.Data.ConfirmedRoleId));
                 if (pendingRole is not null)
                 {
                     await guildUser.RemoveRoleAsync(pendingRole);

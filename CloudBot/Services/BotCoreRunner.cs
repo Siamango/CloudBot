@@ -1,4 +1,5 @@
-﻿using CloudBot.CommandsModules;
+﻿using BetterHaveIt.Repositories;
+using CloudBot.CommandModules;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
@@ -10,45 +11,104 @@ public class BotCoreRunner : ICoreRunner
     private readonly IServiceProvider services;
     private readonly IEnumerable<IMessageDispatchMiddleware> dispatchMiddlewares;
     private readonly IConfiguration configuration;
-    private readonly ILogger<BotCoreRunner> logger;
+    private readonly ILogger logger;
     private readonly CommandService commandService;
     private readonly DiscordSocketClient client;
+    private readonly IRepository<WhitelistPreferencesModel>? whitelistPrefRepo;
 
-    public BotCoreRunner(IServiceProvider services, IEnumerable<IMessageDispatchMiddleware> dispatchMiddlewares, CommandService commandService, IConfiguration configuration, ILogger<BotCoreRunner> logger)
+    public BotCoreRunner(IServiceProvider services, CommandService commandService, IConfiguration configuration, ILoggerFactory loggerFactory)
     {
-        this.dispatchMiddlewares = dispatchMiddlewares;
+        logger = loggerFactory.CreateLogger("Core");
+        whitelistPrefRepo = services.GetService<IRepository<WhitelistPreferencesModel>>();
+        dispatchMiddlewares = services.GetServices<IMessageDispatchMiddleware>();
+        logger.LogInformation("Injecting {n} middlewares", dispatchMiddlewares.Count());
         this.configuration = configuration;
-        this.logger = logger;
 
         logger.LogInformation("Token: {token}", configuration.GetValue<string>("Connection:DiscordToken"));
         client = new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.AllUnprivileged,
+            MessageCacheSize = 128,
+            ConnectionTimeout = 5000,
+            HandlerTimeout = 5000,
+            GatewayIntents = GatewayIntents.All,
             LogLevel = LogSeverity.Info,
         });
         this.commandService = commandService;
         this.commandService.Log += Log;
         client.Log += Log;
-        client.MessageReceived += HandleMessageAsync;
 
+        client.Ready += OnReady;
+        client.MessageReceived += HandleMessageAsync;
+        client.UserJoined += OnUserJoined;
+        client.SlashCommandExecuted += SlashCommandExecuted;
         client.SetGameAsync("⚡ Zapping Citizens ⚡");
         this.services = services;
     }
 
     public async Task RunAsync()
     {
-        await ConfigureCommandsModules();
         logger.LogInformation("Environment {environment}", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
         await client.LoginAsync(TokenType.Bot, configuration.GetValue<string>("Connection:DiscordToken"));
         await client.StartAsync();
         await Task.Delay(Timeout.Infinite);
     }
 
-    private async Task ConfigureCommandsModules()
+    public async Task OnReady()
     {
-        await commandService.AddModuleAsync<EndpointModule>(services);
-        await commandService.AddModuleAsync<AdminCommandsModule>(services);
-        await commandService.AddModuleAsync<CommandsModule>(services);
+        //var cmd
+        var guild = client.GetGuild(configuration.GetValue<ulong>("Connection:GuildId"));
+        logger.LogInformation("Connected to Guild {name}[{id}]", guild.Name, guild.Id);
+        var slashCommandModules = services.GetServices<ISlashCommandModule>();
+        foreach (var slashCommandModule in slashCommandModules)
+        {
+            await slashCommandModule.Register(client, guild, false);
+        }
+    }
+
+    private async Task OnUserJoined(SocketGuildUser user)
+    {
+        if (whitelistPrefRepo is null) return;
+        if (!whitelistPrefRepo.Data.InvitesRewardEnabled) return;
+        var invites = await user.Guild.GetInvitesAsync();
+        IRole? pendingRole = user.Guild.Roles.FirstOrDefault(r => r.Id.Equals(whitelistPrefRepo.Data.PendingRoleId));
+        List<SocketGuildUser> guildUsers = new List<SocketGuildUser>();
+        foreach (var i in invites)
+        {
+            if (i.Uses >= whitelistPrefRepo.Data.InvitesRequired)
+            {
+                var guildUser = user.Guild.GetUser(i.Inviter.Id);
+                if (guildUser.Roles.FirstOrDefault(r => r.Id == whitelistPrefRepo.Data.ConfirmedRoleId || r.Id == whitelistPrefRepo.Data.PendingRoleId) != default)
+                {
+                    continue;
+                }
+                if (pendingRole != null)
+                {
+                    await guildUser.AddRoleAsync(pendingRole);
+                }
+                var channel = guildUser.Guild.GetTextChannel(whitelistPrefRepo.Data.AnnouncementsChannelId);
+                if (channel != null)
+                {
+                    EmbedBuilder embedBuilder = new EmbedBuilder();
+                    embedBuilder.WithColor(Color.Green);
+                    embedBuilder.AddField($"🏆 Congratulations 🏆", $"{guildUser.Mention}, you earned yourself a **whitelist** spot!");
+                    await channel.SendMessageAsync(null, false, embedBuilder.Build());
+                }
+            }
+        }
+    }
+
+    private async Task SlashCommandExecuted(SocketSlashCommand slashCommand)
+    {
+        var slashCommandModules = services.GetServices<ISlashCommandModule>();
+        foreach (var module in slashCommandModules)
+        {
+            var selected = module.GetOrDefault(slashCommand.CommandName);
+            if (selected is not null)
+            {
+                await selected.Delegate(slashCommand);
+                break;
+            }
+        }
     }
 
     private async Task HandleMessageAsync(SocketMessage socketMessage)
@@ -59,17 +119,9 @@ public class BotCoreRunner : ICoreRunner
 
         foreach (var middleware in dispatchMiddlewares)
         {
-            await middleware.Handle(socketMessage);
+            _ = middleware.Handle(socketMessage);
         }
-
-        int pos = 0;
-        if (userMessage.HasStringPrefix("cb.", ref pos))
-        {
-            var context = new SocketCommandContext(client, userMessage);
-            var result = await commandService.ExecuteAsync(context, pos, services);
-            if (!result.IsSuccess && result.Error != CommandError.UnknownCommand)
-                await userMessage.Channel.SendMessageAsync(result.ErrorReason);
-        }
+        await Task.CompletedTask;
     }
 
     private Task Log(LogMessage message)
