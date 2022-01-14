@@ -3,6 +3,7 @@ using CloudBot.Models;
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
+using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -78,7 +79,7 @@ public class AdminCommandModule : AbstractCommandModule
                 new Embed[] { new EmbedBuilder().AddField("RPC error", response.Content).Build() });
             return;
         }
-        var model = JsonSerializer.Deserialize<MemberModel>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
         if (model == null)
         {
             await command.RespondAsync(null, new Embed[] { new EmbedBuilder().AddField("Deserialization error", response.Content).Build() });
@@ -88,7 +89,7 @@ public class AdminCommandModule : AbstractCommandModule
         model.Promised += Convert.ToInt32(amount!.Value);
 
         response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
-            new StringContent(JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true }),
+            new StringContent(JsonConvert.SerializeObject(model, Formatting.Indented),
             Encoding.UTF8,
             "application/json"));
 
@@ -99,7 +100,7 @@ public class AdminCommandModule : AbstractCommandModule
         }
 
         await command.RespondAsync(null, new Embed[] {
-            new EmbedBuilder().AddField("Success", $"```json\n{JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true })}```").Build()
+            new EmbedBuilder().AddField("Success", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```").Build()
         });
     }
 
@@ -116,7 +117,7 @@ public class AdminCommandModule : AbstractCommandModule
             });
             return;
         }
-        var model = JsonSerializer.Deserialize<MemberModel>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
+        var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
         if (model == null)
         {
             await command.RespondAsync(null, new Embed[] {
@@ -128,7 +129,7 @@ public class AdminCommandModule : AbstractCommandModule
         model.Whitelisted = (bool)whitelisted!.Value;
 
         response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
-            new StringContent(JsonSerializer.Serialize(model),
+            new StringContent(JsonConvert.SerializeObject(model),
             Encoding.UTF8, "application/json"));
 
         if (!response.IsSuccessStatusCode)
@@ -140,7 +141,7 @@ public class AdminCommandModule : AbstractCommandModule
         }
 
         await command.RespondAsync(null, new Embed[] {
-            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```json\n{JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true })}```").Build()
+            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```").Build()
         });
     }
 

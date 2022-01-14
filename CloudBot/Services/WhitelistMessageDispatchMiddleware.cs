@@ -3,6 +3,7 @@ using CloudBot.Models;
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
+using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -34,7 +35,7 @@ public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
             await message.AddReactionAsync(failureEmoji);
             return;
         }
-        var model = JsonSerializer.Deserialize<MemberModel>(await response.Content.ReadAsStringAsync());
+        var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
         if (model == null)
         {
             await message.AddReactionAsync(failureEmoji);
@@ -65,14 +66,14 @@ public class WhitelistMessageDispatchMiddleware : IMessageDispatchMiddleware
             await message.AddReactionAsync(failureEmoji);
             return;
         }
-        var members = JsonSerializer.Deserialize<MembersCountersModel>(await response.Content.ReadAsStringAsync());
+        var members = JsonConvert.DeserializeObject<MembersCountersModel>(await response.Content.ReadAsStringAsync());
         if (members is null || members.WhitelistedCount >= whitelistPrefRepo.Data.MaxSize)
         {
             await message.AddReactionAsync(failureEmoji);
             return;
         }
         model.Whitelisted = true;
-        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
+        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}", new StringContent(JsonConvert.SerializeObject(model), Encoding.UTF8, "application/json"));
         if (!response.IsSuccessStatusCode)
         {
             await message.AddReactionAsync(failureEmoji);

@@ -2,6 +2,7 @@
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
+using Newtonsoft.Json;
 using System.Text.Json;
 
 namespace CloudBot.CommandModules;
@@ -38,14 +39,14 @@ public class EndpointCommandModule : AbstractCommandModule
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Color.Red);
-            var jsonElement = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
-            embedBuilder.AddField("Error", $"```json\n{JsonSerializer.Serialize(jsonElement, new JsonSerializerOptions() { WriteIndented = true, PropertyNameCaseInsensitive = true })}```");
+            var jsonElement = JsonConvert.DeserializeObject<JsonElement>(await response.Content.ReadAsStringAsync());
+            embedBuilder.AddField("Error", $"```json\n{JsonConvert.SerializeObject(jsonElement, Formatting.Indented)}```");
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
             return;
         }
 
         string res = await response.Content.ReadAsStringAsync();
-        var model = JsonSerializer.Deserialize<MemberModel>(res, new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
+        var model = JsonConvert.DeserializeObject<MemberModel>(res);
         if (model == null)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -57,7 +58,7 @@ public class EndpointCommandModule : AbstractCommandModule
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Color.Green);
-            embedBuilder.AddField("Result", $"```json\n{JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true })}```");
+            embedBuilder.AddField("Result", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```");
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         }
     }
