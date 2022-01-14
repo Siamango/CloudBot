@@ -1,5 +1,6 @@
 ﻿using BetterHaveIt.Repositories;
 using CloudBot.CommandModules;
+using CloudBot.Statics;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
@@ -27,9 +28,10 @@ public class BotCoreRunner : ICoreRunner
         logger.LogInformation("Token: {token}", configuration.GetValue<string>("Connection:DiscordToken"));
         client = new DiscordSocketClient(new DiscordSocketConfig
         {
+            LogGatewayIntentWarnings = false,
             MessageCacheSize = 128,
             ConnectionTimeout = 5000,
-            HandlerTimeout = 5000,
+            HandlerTimeout = null,
             GatewayIntents = GatewayIntents.All,
             LogLevel = LogSeverity.Info,
         });
@@ -55,14 +57,28 @@ public class BotCoreRunner : ICoreRunner
 
     public async Task OnReady()
     {
-        //var cmd
         var guild = client.GetGuild(configuration.GetValue<ulong>("Connection:GuildId"));
         logger.LogInformation("Connected to Guild {name}[{id}]", guild.Name, guild.Id);
-        var slashCommandModules = services.GetServices<ISlashCommandModule>();
-        foreach (var slashCommandModule in slashCommandModules)
-        {
-            await slashCommandModule.Register(client, guild, false);
-        }
+        logger.LogInformation("Caching endpoints");
+        await new HttpClient().GetAsync($"{Endpoints.STATUS}");
+        //var commands = await client.GetGlobalApplicationCommandsAsync();
+        //foreach (var c in commands)
+        //{
+        //    await c.DeleteAsync();
+        //}
+
+        //commands = await guild.GetApplicationCommandsAsync();
+        //foreach (var c in commands)
+        //{
+        //    await c.DeleteAsync();
+        //}
+        //var slashCommandModules = services.GetServices<ISlashCommandModule>();
+        //Task[] tasks = new Task[slashCommandModules.Count()];
+        //for (int i = 0; i < tasks.Length; i++)
+        //{
+        //    tasks[i] = slashCommandModules.ElementAt(i).Register(client, guild, false);
+        //}
+        //await Task.WhenAll(tasks);
     }
 
     private async Task OnUserJoined(SocketGuildUser user)

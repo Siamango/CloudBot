@@ -24,7 +24,6 @@ public abstract class AbstractCommandModule : ISlashCommandModule
                 await guild.CreateApplicationCommandAsync(command.Properties);
             }
             if (global)
-
             {
                 await client.CreateGlobalApplicationCommandAsync(command.Properties);
             }

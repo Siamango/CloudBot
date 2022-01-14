@@ -1,6 +1,11 @@
 ﻿using BetterHaveIt.Repositories;
+using CloudBot.Models;
+using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace CloudBot.CommandModules;
 
@@ -9,12 +14,15 @@ public class AdminCommandModule : AbstractCommandModule
     private readonly IServiceProvider services;
     private readonly IRepository<WhitelistPreferencesModel> preferencesRepo;
     private readonly ILogger logger;
+    private readonly HttpClient httpClient;
 
-    public AdminCommandModule(IServiceProvider services, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base()
+    public AdminCommandModule(IServiceProvider services, IConfiguration configuration, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base()
     {
         this.services = services;
         this.preferencesRepo = preferencesRepo;
         this.logger = logger;
+        httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
     }
 
     protected override void BuildCommands(List<SlashCommand> commands)
@@ -38,6 +46,102 @@ public class AdminCommandModule : AbstractCommandModule
             .WithDescription("Get the current whitelist setup")
             .Build(),
             GetWhitelistFramework));
+
+        commands.Add(new SlashCommand(
+            new SlashCommandBuilder()
+            .WithName("wlset")
+            .WithDescription("Add a current address to the whitelist")
+            .AddOption("address", ApplicationCommandOptionType.String, "The address to add", true)
+            .AddOption("whitelisted", ApplicationCommandOptionType.Boolean, "The whitelist status", true)
+            .Build(),
+            AddToWhitelist));
+
+        commands.Add(new SlashCommand(
+            new SlashCommandBuilder()
+            .WithName("promised")
+            .WithDescription("Add promised mints to an address")
+            .AddOption("address", ApplicationCommandOptionType.String, "The address to add the mints to", true)
+            .AddOption("amount", ApplicationCommandOptionType.Integer, "Amount to add", true)
+            .Build(),
+            AddPromised));
+    }
+
+    private async Task AddPromised(SocketSlashCommand command)
+    {
+        if (!await HasPermission(command)) return;
+        var address = command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"));
+        var amount = command.Data.Options.FirstOrDefault(o => o.Name.Equals("amount"));
+        var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={address!.Value}");
+        if (!response.IsSuccessStatusCode)
+        {
+            await command.RespondAsync(null,
+                new Embed[] { new EmbedBuilder().AddField("RPC error", response.Content).Build() });
+            return;
+        }
+        var model = JsonSerializer.Deserialize<MemberModel>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (model == null)
+        {
+            await command.RespondAsync(null, new Embed[] { new EmbedBuilder().AddField("Deserialization error", response.Content).Build() });
+            return;
+        }
+
+        model.Promised += Convert.ToInt32(amount!.Value);
+
+        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
+            new StringContent(JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true }),
+            Encoding.UTF8,
+            "application/json"));
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await command.RespondAsync(null, new Embed[] { new EmbedBuilder().AddField("RPC error", response.Content).Build() });
+            return;
+        }
+
+        await command.RespondAsync(null, new Embed[] {
+            new EmbedBuilder().AddField("Success", $"```json\n{JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true })}```").Build()
+        });
+    }
+
+    private async Task AddToWhitelist(SocketSlashCommand command)
+    {
+        if (!await HasPermission(command)) return;
+        var address = command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"));
+        var whitelisted = command.Data.Options.FirstOrDefault(o => o.Name.Equals("whitelisted"));
+        var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={address!.Value}");
+        if (!response.IsSuccessStatusCode)
+        {
+            await command.RespondAsync(null, new Embed[] {
+                new EmbedBuilder().WithColor(Color.Red).AddField("RPC error", await response.Content.ReadAsStringAsync()).Build()
+            });
+            return;
+        }
+        var model = JsonSerializer.Deserialize<MemberModel>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions() { PropertyNameCaseInsensitive = true });
+        if (model == null)
+        {
+            await command.RespondAsync(null, new Embed[] {
+                new EmbedBuilder().WithColor(Color.Red).AddField("Deserialization error", await response.Content.ReadAsStringAsync()).Build()
+            });
+            return;
+        }
+
+        model.Whitelisted = (bool)whitelisted!.Value;
+
+        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
+            new StringContent(JsonSerializer.Serialize(model),
+            Encoding.UTF8, "application/json"));
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await command.RespondAsync(null, new Embed[] {
+                new EmbedBuilder().WithColor(Color.Red).AddField("RPC 2 error", await response.Content.ReadAsStringAsync()).Build()
+            });
+            return;
+        }
+
+        await command.RespondAsync(null, new Embed[] {
+            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```json\n{JsonSerializer.Serialize(model, new JsonSerializerOptions() { WriteIndented = true })}```").Build()
+        });
     }
 
     private async Task GetWhitelistFramework(SocketSlashCommand command)
