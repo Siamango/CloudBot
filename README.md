@@ -41,3 +41,7 @@ To add an event handler:
 
 Done, no need to explicitly register anything, the class will be registered as a service automatically.
 
+
+## User Secrets   
+The repository uses the user secrets functionality of .NET.    
+The `appsettings.Production.json` is not pushed for security reasons. In the `appsettings.Development.json` there are no sensible information. In order to run and test the repository, the information saved in user secrets are needed.
