@@ -26,9 +26,9 @@ public class AdminCommandModule : AbstractCommandModule
         httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
     }
 
-    protected override void BuildCommands(List<SlashCommand> commands)
+    protected override void BuildCommands(List<SlashCommandDefinition> commands)
     {
-        commands.Add(new SlashCommand(
+        commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("wlsetup")
             .WithDescription("Set the whitelist framework")
@@ -41,14 +41,14 @@ public class AdminCommandModule : AbstractCommandModule
             .Build(),
             SetupWhitelistFramework));
 
-        commands.Add(new SlashCommand(
+        commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("wlget")
             .WithDescription("Get the current whitelist setup")
             .Build(),
             GetWhitelistFramework));
 
-        commands.Add(new SlashCommand(
+        commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("wlset")
             .WithDescription("Add a current address to the whitelist")
@@ -57,7 +57,7 @@ public class AdminCommandModule : AbstractCommandModule
             .Build(),
             AddToWhitelist));
 
-        commands.Add(new SlashCommand(
+        commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("promised")
             .WithDescription("Add promised mints to an address")

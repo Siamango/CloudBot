@@ -5,15 +5,15 @@ namespace CloudBot.CommandModules;
 
 public abstract class AbstractCommandModule : ISlashCommandModule
 {
-    private readonly List<SlashCommand> commands;
+    private readonly List<SlashCommandDefinition> commands;
 
     protected AbstractCommandModule()
     {
-        commands = new List<SlashCommand>();
+        commands = new List<SlashCommandDefinition>();
         BuildCommands(commands);
     }
 
-    public SlashCommand? GetOrDefault(string name) => commands.FirstOrDefault(c => c.Properties.Name.Equals(name));
+    public SlashCommandDefinition? GetOrDefault(string name) => commands.FirstOrDefault(c => c.Properties.Name.Equals(name));
 
     public async Task Register(DiscordSocketClient client, SocketGuild? guild, bool global)
     {
@@ -46,5 +46,5 @@ public abstract class AbstractCommandModule : ISlashCommandModule
         }
     }
 
-    protected abstract void BuildCommands(List<SlashCommand> commands);
+    protected abstract void BuildCommands(List<SlashCommandDefinition> commands);
 }
