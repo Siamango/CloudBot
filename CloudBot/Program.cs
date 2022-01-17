@@ -2,8 +2,6 @@
 using CloudBot;
 using CloudBot.Services;
 using CloudBot.Statics;
-using Discord;
-using Discord.Commands;
 using System.Reflection;
 
 void OnShutdown(IServiceProvider services)
@@ -14,6 +12,8 @@ void OnShutdown(IServiceProvider services)
         preferencesRepo.Save();
     }
 }
+
+if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == null) Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production");
 
 var host = Host.CreateDefaultBuilder()
     .ConfigureAppConfiguration((config) =>
