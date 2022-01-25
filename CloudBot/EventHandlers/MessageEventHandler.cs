@@ -31,8 +31,8 @@ public class MessageEventHandler : IDiscordClientEventHandler
 
     private async Task Handle(SocketMessage message)
     {
-        logger.LogWarning("Received {message}", message.Content);
         if (message.Channel.Id != whitelistPrefRepo.Data.ListenChannelId) return;
+        logger.LogWarning("Received {message}", message.Content);
         var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={message.Content}");
         if (!response.IsSuccessStatusCode)
         {

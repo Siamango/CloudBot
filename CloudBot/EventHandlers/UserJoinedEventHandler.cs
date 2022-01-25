@@ -29,11 +29,25 @@ public class UserJoinedEventHandler : IDiscordClientEventHandler
         var invites = await user.Guild.GetInvitesAsync();
         IRole? pendingRole = user.Guild.Roles.FirstOrDefault(r => r.Id.Equals(whitelistPrefRepo.Data.PendingRoleId));
         List<SocketGuildUser> guildUsers = new List<SocketGuildUser>();
+        Dictionary<ulong, int> invitesMap = new Dictionary<ulong, int>();
+
         foreach (var i in invites)
         {
-            if (i.Uses >= whitelistPrefRepo.Data.InvitesRequired)
+            if (i.Uses is null) continue;
+            if (invitesMap.ContainsKey(i.Inviter.Id))
             {
-                var guildUser = user.Guild.GetUser(i.Inviter.Id);
+                invitesMap[i.Inviter.Id] += i.Uses ?? default;
+            }
+            else
+            {
+                invitesMap.Add(i.Inviter.Id, i.Uses ?? default);
+            }
+        }
+        foreach (var pair in invitesMap)
+        {
+            if (pair.Value >= whitelistPrefRepo.Data.InvitesRequired)
+            {
+                var guildUser = user.Guild.GetUser(pair.Key);
                 if (guildUser.Roles.FirstOrDefault(r => r.Id == whitelistPrefRepo.Data.ConfirmedRoleId || r.Id == whitelistPrefRepo.Data.PendingRoleId) != default)
                 {
                     continue;
