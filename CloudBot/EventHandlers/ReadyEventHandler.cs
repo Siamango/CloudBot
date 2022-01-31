@@ -1,4 +1,5 @@
-﻿using CloudBot.Statics;
+﻿using CloudBot.CommandModules;
+using CloudBot.Statics;
 using Discord.WebSocket;
 
 namespace CloudBot.EventHandlers;
@@ -6,11 +7,13 @@ namespace CloudBot.EventHandlers;
 public class ReadyEventHandler : IDiscordClientEventHandler
 {
     private readonly ILogger logger;
+    private readonly IServiceProvider services;
     private readonly IConfiguration configuration;
 
-    public ReadyEventHandler(ILoggerFactory loggerFactory, IConfiguration configuration)
+    public ReadyEventHandler(IServiceProvider services, ILoggerFactory loggerFactory, IConfiguration configuration)
     {
         logger = loggerFactory.CreateLogger($"{GetType().Name}");
+        this.services = services;
         this.configuration = configuration;
     }
 

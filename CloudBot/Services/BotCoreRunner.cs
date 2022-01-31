@@ -38,7 +38,6 @@ public class BotCoreRunner : ICoreRunner
         {
             handler.RegisterHandlers(client);
         }
-
         client.SetGameAsync("⚡ Zapping Citizens ⚡");
     }
 
@@ -47,6 +46,7 @@ public class BotCoreRunner : ICoreRunner
         logger.LogInformation("Environment {environment}", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
         await client.LoginAsync(TokenType.Bot, configuration.GetValue<string>("Connection:DiscordToken"));
         await client.StartAsync();
+
         await Task.Delay(Timeout.Infinite);
     }
 }

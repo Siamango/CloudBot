@@ -6,11 +6,13 @@ namespace CloudBot.CommandModules;
 public abstract class AbstractCommandModule : ISlashCommandModule
 {
     private readonly List<SlashCommandDefinition> commands;
+    private readonly ILogger logger;
 
-    protected AbstractCommandModule()
+    protected AbstractCommandModule(ILogger logger)
     {
         commands = new List<SlashCommandDefinition>();
         BuildCommands(commands);
+        this.logger = logger;
     }
 
     public SlashCommandDefinition? GetOrDefault(string name) => commands.FirstOrDefault(c => c.Properties.Name.Equals(name));
@@ -19,6 +21,7 @@ public abstract class AbstractCommandModule : ISlashCommandModule
     {
         foreach (var command in commands)
         {
+            logger.LogInformation("Registering command {c} on guild", command.Properties.Name);
             if (guild is not null)
             {
                 await guild.CreateApplicationCommandAsync(command.Properties);

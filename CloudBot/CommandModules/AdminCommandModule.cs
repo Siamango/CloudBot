@@ -4,9 +4,7 @@ using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
-using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 
 namespace CloudBot.CommandModules;
 
@@ -17,7 +15,7 @@ public class AdminCommandModule : AbstractCommandModule
     private readonly ILogger logger;
     private readonly HttpClient httpClient;
 
-    public AdminCommandModule(IServiceProvider services, IConfiguration configuration, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base()
+    public AdminCommandModule(IServiceProvider services, IConfiguration configuration, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
     {
         this.services = services;
         this.preferencesRepo = preferencesRepo;
@@ -47,6 +45,13 @@ public class AdminCommandModule : AbstractCommandModule
             .WithDescription("Get the current whitelist setup")
             .Build(),
             GetWhitelistFramework));
+
+        commands.Add(new SlashCommandDefinition(
+            new SlashCommandBuilder()
+            .WithName("mintinfo")
+            .WithDescription("Get the current mint info")
+            .Build(),
+            MintInfo));
 
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
@@ -143,6 +148,34 @@ public class AdminCommandModule : AbstractCommandModule
         await command.RespondAsync(null, new Embed[] {
             new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```").Build()
         });
+    }
+
+    private async Task MintInfo(SocketSlashCommand command)
+    {
+        if (!await HasPermission(command)) return;
+
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        embedBuilder.WithColor(Constants.AccentColorFirst);
+        embedBuilder.WithTitle("📋 MINT DETAILS 📋");
+        embedBuilder.AddField("Presale start", "🔷 `TUE 9:00 PM UTC February 1, 2022`\n" +
+            "🔷 **0.42 SOL**\n" +
+            "🔷 Only at: https://neonclouds.net/ \n" +
+            "🔷 Only **300** NFTs are available to mint in the pre-sale\n" +
+            "🔷 You can mint as many as you can until sold out");
+        embedBuilder.AddField("ℹ Info", "To verify your whitelist status:\n" +
+            "- Go to https://collective.neonclouds.net and connect the wallet you will use to mint\n" +
+            "**or**\n" +
+            "- In our discord server, run the command `/status <address>`");
+        embedBuilder.AddField("To mint", "Go to https://neonclouds.net/whitelistPresaleMint and follow the directions:");
+        embedBuilder.AddField("1️⃣ ", "You **must be whitelisted** in the server in order to access the minting page");
+        embedBuilder.AddField("2️⃣ ", "Connect your wallet that you would like to mint with");
+        embedBuilder.AddField("3️⃣ ", "Your wallet will ask you to confirm connection. This is to verify that you own the wallet you entered. This request will not trigger a blockchain transaction or cost any gas fees, similar to common Web3 websites or Grape");
+        embedBuilder.AddField("4️⃣ ", "Upon countdown end, the mint button will appear");
+        embedBuilder.AddField("\n⚠ Important", "Care for phishing **always** double check the domain!\n" +
+            "Remember to keep at least **0.05 + 0.35 SOL (single mint price)** in the wallet in order to make up for the GAS FEES");
+
+        await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+        await Task.CompletedTask;
     }
 
     private async Task GetWhitelistFramework(SocketSlashCommand command)
