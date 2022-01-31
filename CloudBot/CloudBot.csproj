@@ -23,7 +23,8 @@
 
   <ItemGroup>
     <PackageReference Include="BetterHaveIt" Version="1.0.6" />
-    <PackageReference Include="Discord.Net" Version="3.1.0" />
+    <PackageReference Include="Discord.Net" Version="3.2.1" />
+    <PackageReference Include="SolmangoNET" Version="1.0.3" />
   </ItemGroup>
 
   <ItemGroup>

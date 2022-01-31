@@ -1,9 +1,8 @@
-﻿using CloudBot.Models;
-using CloudBot.Statics;
+﻿using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using SolmangoNET.Models;
 using System.Text.Json;
 
 namespace CloudBot.CommandModules;
@@ -57,20 +56,24 @@ public class CommandModule : AbstractCommandModule
     {
         var id = command.Data.Options.FirstOrDefault(o => o.Name.Equals("id"));
 
-        string endpoint = $"{Endpoints.METADATA}{$"?id={id!.Value}"}";
-        var response = await httpClient.GetAsync(endpoint);
-        if (!response.IsSuccessStatusCode)
+        var metaTask = httpClient.GetAsync($"{Endpoints.METADATA}{$"?id={id!.Value}"}");
+        var statusTask = httpClient.GetAsync($"{Endpoints.STATUS}");
+        await Task.WhenAll(metaTask, statusTask);
+        var statusResponse = statusTask.Result;
+        var metaResponse = metaTask.Result;
+        if (!statusResponse.IsSuccessStatusCode || !metaResponse.IsSuccessStatusCode)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Error", $"```json\n{await response.Content.ReadAsStringAsync()}```");
+            embedBuilder.AddField("Error", $"```API endpoint error```");
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
             return;
         }
+        var orgStatus = JsonConvert.DeserializeObject<OrganizationStatusModel>(await statusResponse.Content.ReadAsStringAsync());
+        string res = await metaResponse.Content.ReadAsStringAsync();
 
-        string res = await response.Content.ReadAsStringAsync();
-        var model = JObject.Parse(res);
-        if (model == null || !model.TryGetValue("rarityScore", out var token))
+        var model = JsonConvert.DeserializeObject<TokenMetadataModel>(res);
+        if (orgStatus == null || model == null)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Color.Red);
@@ -79,10 +82,33 @@ public class CommandModule : AbstractCommandModule
         }
         else
         {
-            int score = ((int)token);
+            int score = model.RarityScore;
+            float percentage = (100F * score) / orgStatus.Collection.Supply;
+            string emoji = string.Empty;
+            if (percentage <= 75)
+            {
+                emoji = "\n🥉 ";
+            }
+            if (percentage <= 50)
+            {
+                emoji = "\n🥈 ";
+            }
+            if (percentage <= 10)
+            {
+                emoji = "\n🥇 ";
+            }
+            if (percentage <= 2)
+            {
+                emoji = "\n🏆 Congratulations! 🏆 ";
+            }
             EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Green);
-            embedBuilder.AddField($"Neon Cloud #{id!.Value} rarity score", $"🚀 {score}");
+            embedBuilder.WithColor(Constants.AccentColorFirst);
+            embedBuilder.WithImageUrl(model.Image);
+            embedBuilder.AddField($"🚀 Neon Cloud **#{id!.Value}** rarity score 🚀", $" {score}/{orgStatus.Collection.Supply}\n{emoji}\nTop **{percentage:0.00}%**");
+            foreach (var attr in model.Attributes)
+            {
+                embedBuilder.AddField($"{attr.Trait}: {attr.Value}", $"{attr.Rarity}%  have this trait");
+            }
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         }
     }

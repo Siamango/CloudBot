@@ -4,6 +4,7 @@ using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
+using SolmangoNET.Models;
 using System.Text;
 
 namespace CloudBot.CommandModules;
@@ -157,22 +158,17 @@ public class AdminCommandModule : AbstractCommandModule
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Constants.AccentColorFirst);
         embedBuilder.WithTitle("📋 MINT DETAILS 📋");
-        embedBuilder.AddField("Presale start", "🔷 `TUE 9:00 PM UTC February 1, 2022`\n" +
+        embedBuilder.AddField("Public sale start", "🔷 `TUE 9:00 PM UTC February 1, 2022`\n" +
             "🔷 **0.42 SOL**\n" +
             "🔷 Only at: https://neonclouds.net/ \n" +
-            "🔷 Only **300** NFTs are available to mint in the pre-sale\n" +
+            "🔷 1269/1569 NFTs are available to mint\n" +
             "🔷 You can mint as many as you can until sold out");
-        embedBuilder.AddField("ℹ Info", "To verify your whitelist status:\n" +
-            "- Go to https://collective.neonclouds.net and connect the wallet you will use to mint\n" +
-            "**or**\n" +
-            "- In our discord server, run the command `/status <address>`");
-        embedBuilder.AddField("To mint", "Go to https://neonclouds.net/whitelistPresaleMint and follow the directions:");
-        embedBuilder.AddField("1️⃣ ", "You **must be whitelisted** in the server in order to access the minting page");
+        embedBuilder.AddField("To mint", "Go to https://neonclouds.net/mint and follow the directions:");
+        embedBuilder.AddField("1️⃣ ", "No need to refresh the page upon contdown end, the mint button will apper automatically");
         embedBuilder.AddField("2️⃣ ", "Connect your wallet that you would like to mint with");
         embedBuilder.AddField("3️⃣ ", "Your wallet will ask you to confirm connection. This is to verify that you own the wallet you entered. This request will not trigger a blockchain transaction or cost any gas fees, similar to common Web3 websites or Grape");
-        embedBuilder.AddField("4️⃣ ", "Upon countdown end, the mint button will appear");
         embedBuilder.AddField("\n⚠ Important", "Care for phishing **always** double check the domain!\n" +
-            "Remember to keep at least **0.05 + 0.35 SOL (single mint price)** in the wallet in order to make up for the GAS FEES");
+            "Remember to keep at least **0.05 + 0.42 SOL (single mint price)** in the wallet in order to make up for the GAS FEES");
 
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         await Task.CompletedTask;

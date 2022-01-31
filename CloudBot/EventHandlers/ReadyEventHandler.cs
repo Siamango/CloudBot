@@ -1,5 +1,4 @@
-﻿using CloudBot.CommandModules;
-using CloudBot.Statics;
+﻿using CloudBot.Statics;
 using Discord.WebSocket;
 
 namespace CloudBot.EventHandlers;

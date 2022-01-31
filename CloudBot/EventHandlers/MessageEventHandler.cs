@@ -4,6 +4,7 @@ using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
+using SolmangoNET.Models;
 using System.Text;
 
 namespace CloudBot.EventHandlers;
