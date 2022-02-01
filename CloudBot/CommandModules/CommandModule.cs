@@ -56,7 +56,7 @@ public class CommandModule : AbstractCommandModule
     {
         var id = command.Data.Options.FirstOrDefault(o => o.Name.Equals("id"));
 
-        var metaTask = httpClient.GetAsync($"{Endpoints.METADATA}{$"?id={id!.Value}"}");
+        var metaTask = httpClient.GetAsync($"{Endpoints.INFO}{$"?id={id!.Value}"}");
         var statusTask = httpClient.GetAsync($"{Endpoints.STATUS}");
         await Task.WhenAll(metaTask, statusTask);
         var statusResponse = statusTask.Result;
@@ -72,7 +72,7 @@ public class CommandModule : AbstractCommandModule
         var orgStatus = JsonConvert.DeserializeObject<OrganizationStatusModel>(await statusResponse.Content.ReadAsStringAsync());
         string res = await metaResponse.Content.ReadAsStringAsync();
 
-        var model = JsonConvert.DeserializeObject<TokenMetadataModel>(res);
+        var model = JsonConvert.DeserializeObject<MintInfoModel>(res);
         if (orgStatus == null || model == null)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -82,33 +82,40 @@ public class CommandModule : AbstractCommandModule
         }
         else
         {
-            int score = model.RarityScore;
-            float percentage = (100F * score) / orgStatus.Collection.Supply;
-            string emoji = string.Empty;
-            if (percentage <= 75)
-            {
-                emoji = "\n🥉 ";
-            }
-            if (percentage <= 50)
-            {
-                emoji = "\n🥈 ";
-            }
-            if (percentage <= 10)
-            {
-                emoji = "\n🥇 ";
-            }
-            if (percentage <= 2)
-            {
-                emoji = "\n🏆 Congratulations! 🏆 ";
-            }
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Constants.AccentColorFirst);
-            embedBuilder.WithImageUrl(model.Image);
-            embedBuilder.AddField($"🚀 Neon Cloud **#{id!.Value}** rarity score 🚀", $" {score}/{orgStatus.Collection.Supply}\n{emoji}\nTop **{percentage:0.00}%**");
-            foreach (var attr in model.Attributes)
+            if (model.Rarity is not null)
             {
-                embedBuilder.AddField($"{attr.Trait}: {attr.Value}", $"{attr.Rarity}%  have this trait");
+                double percentage = model.Rarity.Percentage;
+                string emoji = string.Empty;
+                if (percentage <= 75)
+                {
+                    emoji = "\n🥉 ";
+                }
+                if (percentage <= 50)
+                {
+                    emoji = "\n🥈 ";
+                }
+                if (percentage <= 10)
+                {
+                    emoji = "\n🥇 ";
+                }
+                if (percentage <= 2)
+                {
+                    emoji = "\n🏆 Congratulations! 🏆 ";
+                }
+                embedBuilder.AddField($"🚀 Neon Cloud **#{id!.Value}** rarity score 🚀", $" {model.Rarity.RarityOrder}/{orgStatus.Collection.Supply}\n{emoji}\nTop **{percentage:0.00}%**");
             }
+            if (model.Metadata is not null)
+            {
+                embedBuilder.WithImageUrl(model.Metadata.Image);
+
+                foreach (var attr in model.Metadata.Attributes)
+                {
+                    embedBuilder.AddField($"{attr.Trait}: {attr.Value}", $"{attr.Rarity}%  have this trait");
+                }
+            }
+
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         }
     }
