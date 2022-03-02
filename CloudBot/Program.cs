@@ -1,43 +1,58 @@
 ﻿using BetterHaveIt.Repositories;
-using CloudBot;
 using CloudBot.Services;
+using CloudBot.Settings;
 using CloudBot.Statics;
-using System.Reflection;
+using SolmangoNET.Rpc;
+using Solnet.Rpc;
 
 void OnShutdown(IServiceProvider services)
 {
-    var preferencesRepo = services.GetService<IRepository<WhitelistPreferencesModel>>();
-    if (preferencesRepo is not null)
+    var repo = services.GetService<IRepository<List<string>>>();
+    if (repo is not null)
     {
-        preferencesRepo.Save();
+        repo.Save();
     }
 }
 
-if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == null) Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production");
-
-var host = Host.CreateDefaultBuilder()
-    .ConfigureAppConfiguration((config) =>
-        config.SetBasePath(Directory.GetCurrentDirectory())
-        .AddUserSecrets(Assembly.GetEntryAssembly(), true)
-        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", true, true)
-        .AddEnvironmentVariables())
-    .ConfigureServices((context, services) =>
-    {
-        services.AddSlashCommandsModules();
-        services.AddDiscordClientEventHandlers();
-        services.AddSingleton<ICoreRunner, BotCoreRunner>();
-        services.AddSingleton<IRepository<WhitelistPreferencesModel>>(new RepositoryJson<WhitelistPreferencesModel>(context.Configuration.GetValue<string>("Paths:PreferencesPath")));
-    })
-    .Build();
-
-var applicationLifetime = host.Services.GetService<IHostApplicationLifetime>();
-if (applicationLifetime != null)
+WebApplication CreateWebApplication()
 {
-    applicationLifetime.ApplicationStopping.Register(() => OnShutdown(host.Services));
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Services.AddSlashCommandsModules();
+    builder.Services.AddDiscordClientEventHandlers();
+    builder.Services.AddSingleton<ICoreRunner, BotCoreRunner>();
+
+    builder.Services.Configure<ConnectionSettings>(builder.Configuration.GetSection(ConnectionSettings.POSITION));
+    builder.Services.Configure<PathsSettings>(builder.Configuration.GetSection(PathsSettings.POSITION));
+
+    builder.Services.AddSingleton<IRepository<List<string>>>((services) =>
+    {
+        var pathsSettings = builder.Configuration.GetSection(PathsSettings.POSITION).Get<PathsSettings>();
+        return new RepositoryJson<List<string>>(pathsSettings.Get("AddressesList")!.CompletePath);
+    });
+    builder.Services.AddSingleton<IRpcScheduler>((services) =>
+    {
+        var scheduler = new BasicRpcScheduler(100);
+        scheduler.Start();
+        return scheduler;
+    });
+    builder.Services.AddSingleton<IRpcClient>((services) =>
+    {
+        var connectionSettings = builder.Configuration.GetSection(ConnectionSettings.POSITION).Get<ConnectionSettings>();
+        return ClientFactory.GetClient(connectionSettings.SolanaEndpoint);
+    });
+
+    var app = builder.Build();
+    var applicationLifetime = app.Services.GetService<IHostApplicationLifetime>();
+    if (applicationLifetime != null)
+    {
+        applicationLifetime.ApplicationStopping.Register(() => OnShutdown(app.Services));
+    }
+    return app;
 }
 
-var core = host.Services.GetService<ICoreRunner>();
-
+var app = CreateWebApplication();
+var core = app.Services.GetService<ICoreRunner>();
 if (core != null)
 {
     await core.RunAsync();

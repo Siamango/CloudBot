@@ -5,6 +5,8 @@ using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
 using SolmangoNET.Models;
+using SolmangoNET.Rpc;
+using Solnet.Rpc;
 using System.Text;
 
 namespace CloudBot.EventHandlers;
@@ -15,13 +17,19 @@ public class MessageEventHandler : IDiscordClientEventHandler
     private static readonly Emoji failureEmoji = new Emoji("❌");
     private readonly ILogger logger;
     private readonly HttpClient httpClient;
+    private readonly IRpcScheduler scheduler;
+    private readonly IRpcClient rpcClient;
     private readonly IRepository<WhitelistPreferencesModel> whitelistPrefRepo;
+    private readonly IRepository<List<string>> addressesRepo;
 
-    public MessageEventHandler(ILoggerFactory loggerFactory, IConfiguration configuration, IRepository<WhitelistPreferencesModel> whitelistPrefRepo)
+    public MessageEventHandler(IRpcScheduler scheduler, IRpcClient rpcClient, ILoggerFactory loggerFactory, IConfiguration configuration, IRepository<WhitelistPreferencesModel> whitelistPrefRepo, IRepository<List<string>> addressesRepo)
     {
         httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
+        this.scheduler = scheduler;
+        this.rpcClient = rpcClient;
         this.whitelistPrefRepo = whitelistPrefRepo;
+        this.addressesRepo = addressesRepo;
         logger = loggerFactory.CreateLogger($"{GetType().Name}");
     }
 
@@ -31,6 +39,29 @@ public class MessageEventHandler : IDiscordClientEventHandler
     }
 
     private async Task Handle(SocketMessage message)
+    {
+        var address = message.Content;
+        var res = scheduler.Schedule(() => rpcClient.GetBalanceAsync(address));
+        if (res.TryPickT1(out var exception, out var token))
+        {
+            await message.AddReactionAsync(failureEmoji);
+            return;
+        }
+        var result = await token;
+        if (!result.WasRequestSuccessfullyHandled)
+        {
+            await message.AddReactionAsync(failureEmoji);
+            return;
+        }
+        if (!addressesRepo.Data.Contains(message.Content))
+        {
+            addressesRepo.Data.Add(message.Content);
+            addressesRepo.SaveAsync();
+        }
+        await message.AddReactionAsync(successEmoji);
+    }
+
+    private async Task WhitelistHandle(SocketMessage message)
     {
         if (message.Channel.Id != whitelistPrefRepo.Data.ListenChannelId) return;
         logger.LogWarning("Received {message}", message.Content);

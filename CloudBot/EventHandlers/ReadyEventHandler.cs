@@ -1,4 +1,4 @@
-﻿using CloudBot.Statics;
+﻿using CloudBot.CommandModules;
 using Discord.WebSocket;
 
 namespace CloudBot.EventHandlers;
@@ -25,25 +25,30 @@ public class ReadyEventHandler : IDiscordClientEventHandler
     {
         var guild = client.GetGuild(configuration.GetValue<ulong>("Connection:GuildId"));
         logger.LogInformation("Connected to Guild {name} [{id}]", guild.Name, guild.Id);
-        logger.LogInformation("Caching endpoints");
-        await new HttpClient().GetAsync($"{Endpoints.STATUS}");
-        //var commands = await client.GetGlobalApplicationCommandsAsync();
-        //foreach (var c in commands)
-        //{
-        //    await c.DeleteAsync();
-        //}
 
-        //commands = await guild.GetApplicationCommandsAsync();
-        //foreach (var c in commands)
-        //{
-        //    await c.DeleteAsync();
-        //}
-        //var slashCommandModules = services.GetServices<ISlashCommandModule>();
-        //Task[] tasks = new Task[slashCommandModules.Count()];
-        //for (int i = 0; i < tasks.Length; i++)
-        //{
-        //    tasks[i] = slashCommandModules.ElementAt(i).Register(client, guild, false);
-        //}
-        //await Task.WhenAll(tasks);
+        //await RefreshCommandsRegistration(client, guild);
+    }
+
+    private async Task RefreshCommandsRegistration(DiscordSocketClient client, SocketGuild guild)
+    {
+        var commands = await client.GetGlobalApplicationCommandsAsync();
+        foreach (var c in commands)
+        {
+            await c.DeleteAsync();
+        }
+
+        commands = await guild.GetApplicationCommandsAsync();
+        foreach (var c in commands)
+        {
+            await c.DeleteAsync();
+        }
+
+        var slashCommandModules = services.GetServices<ISlashCommandModule>();
+        Task[] tasks = new Task[slashCommandModules.Count()];
+        for (int i = 0; i < tasks.Length; i++)
+        {
+            tasks[i] = slashCommandModules.ElementAt(i).Register(client, guild, false);
+        }
+        await Task.WhenAll(tasks);
     }
 }

@@ -1,9 +1,6 @@
 ﻿using BetterHaveIt.Repositories;
-using CloudBot.CommandModules;
 using CloudBot.EventHandlers;
-using CloudBot.Statics;
 using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
 
 namespace CloudBot.Services;
