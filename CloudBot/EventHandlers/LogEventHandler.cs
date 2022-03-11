@@ -12,10 +12,7 @@ public class LogEventHandler : IDiscordClientEventHandler
         logger = loggerFactory.CreateLogger("Log");
     }
 
-    public void RegisterHandlers(DiscordSocketClient client)
-    {
-        client.Log += async (message) => await Log(message);
-    }
+    public void RegisterHandlers(DiscordSocketClient client) => client.Log += async (message) => await Log(message);
 
     private Task Log(LogMessage message)
     {

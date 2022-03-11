@@ -11,12 +11,10 @@ public class BotCoreRunner : ICoreRunner
     private readonly IConfiguration configuration;
     private readonly ILogger logger;
     private readonly DiscordSocketClient client;
-    private readonly IRepository<WhitelistPreferencesModel> whitelistPrefRepo;
 
-    public BotCoreRunner(IRepository<WhitelistPreferencesModel> whitelistPrefRepo, IEnumerable<IDiscordClientEventHandler> eventHandlers, IConfiguration configuration, ILoggerFactory loggerFactory)
+    public BotCoreRunner(IEnumerable<IDiscordClientEventHandler> eventHandlers, IConfiguration configuration, ILoggerFactory loggerFactory)
     {
         logger = loggerFactory.CreateLogger($"{GetType().Name}");
-        this.whitelistPrefRepo = whitelistPrefRepo;
         this.eventHandlers = eventHandlers;
         this.configuration = configuration;
 

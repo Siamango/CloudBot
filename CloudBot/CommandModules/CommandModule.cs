@@ -1,4 +1,5 @@
-﻿using CloudBot.Statics;
+﻿using BetterHaveIt.Repositories;
+using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
@@ -10,29 +11,16 @@ namespace CloudBot.CommandModules;
 public class CommandModule : AbstractCommandModule
 {
     private readonly HttpClient httpClient;
+    private readonly IServiceProvider services;
 
-    public CommandModule(ILogger<CommandModule> logger) : base(logger)
+    public CommandModule(ILogger<CommandModule> logger, IServiceProvider services) : base(logger)
     {
         httpClient = new HttpClient();
+        this.services = services;
     }
 
     protected override void BuildCommands(List<SlashCommandDefinition> commands)
     {
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("status")
-            .WithDescription("Get your status")
-            .AddOption("address", ApplicationCommandOptionType.String, "The member address", true)
-            .Build(),
-            GetMember));
-
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("invites")
-            .WithDescription("Get the user invites amount")
-            .Build(),
-            GetInvites));
-
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("rarity-score")
@@ -56,68 +44,60 @@ public class CommandModule : AbstractCommandModule
     {
         var id = command.Data.Options.FirstOrDefault(o => o.Name.Equals("id"));
 
-        var metaTask = httpClient.GetAsync($"{Endpoints.INFO}{$"?id={id!.Value}"}");
-        var statusTask = httpClient.GetAsync($"{Endpoints.STATUS}");
-        await Task.WhenAll(metaTask, statusTask);
-        var statusResponse = statusTask.Result;
-        var metaResponse = metaTask.Result;
-        if (!statusResponse.IsSuccessStatusCode || !metaResponse.IsSuccessStatusCode)
+        int idInt = Convert.ToInt32(id!.Value);
+        IRepository<CandyMachineModel> cmRepo = services.GetRequiredService<IRepository<CandyMachineModel>>();
+        EmbedBuilder embedBuilder;
+        if (!cmRepo.Data.Items.TryGetValue(idInt, out var match))
         {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
+            embedBuilder = new EmbedBuilder();
             embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Error", $"```API endpoint error```");
+            embedBuilder.AddField("Error", $"```ID {idInt} not found```");
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
             return;
         }
-        var orgStatus = JsonConvert.DeserializeObject<OrganizationStatusModel>(await statusResponse.Content.ReadAsStringAsync());
-        string res = await metaResponse.Content.ReadAsStringAsync();
 
-        var model = JsonConvert.DeserializeObject<MintInfoModel>(res);
-        if (orgStatus == null || model == null)
+        IRepository<List<RarityModel>> raritiesRepo = services.GetRequiredService<IRepository<List<RarityModel>>>();
+        var rarity = raritiesRepo.Data.FirstOrDefault(r => r.Id == idInt);
+
+        embedBuilder = new EmbedBuilder();
+        embedBuilder.WithColor(Constants.AccentColorFirst);
+        var req = await httpClient.GetAsync(match.Link);
+
+        string content = await req.Content.ReadAsStringAsync();
+        var tokenMeta = JsonConvert.DeserializeObject<TokenMetadataModel>(content);
+        if (rarity is not null)
         {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Error", $"Wrong backend data");
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+            double percentage = rarity.Percentage;
+            string emoji = string.Empty;
+            if (percentage <= 75)
+            {
+                emoji = "\n🥉 ";
+            }
+            if (percentage <= 50)
+            {
+                emoji = "\n🥈 ";
+            }
+            if (percentage <= 10)
+            {
+                emoji = "\n🥇 ";
+            }
+            if (percentage <= 2)
+            {
+                emoji = "\n🏆 Congratulations! 🏆 ";
+            }
+            embedBuilder.AddField($"🚀 Neon Cloud **#{idInt}** rarity score 🚀", $" {rarity.RarityOrder}/1250\n{emoji}\nTop **{percentage:0.00}%**");
         }
-        else
+        if (tokenMeta is not null)
         {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Constants.AccentColorFirst);
-            if (model.Rarity is not null)
-            {
-                double percentage = model.Rarity.Percentage;
-                string emoji = string.Empty;
-                if (percentage <= 75)
-                {
-                    emoji = "\n🥉 ";
-                }
-                if (percentage <= 50)
-                {
-                    emoji = "\n🥈 ";
-                }
-                if (percentage <= 10)
-                {
-                    emoji = "\n🥇 ";
-                }
-                if (percentage <= 2)
-                {
-                    emoji = "\n🏆 Congratulations! 🏆 ";
-                }
-                embedBuilder.AddField($"🚀 Neon Cloud **#{id!.Value}** rarity score 🚀", $" {model.Rarity.RarityOrder}/{orgStatus.Collection.Supply}\n{emoji}\nTop **{percentage:0.00}%**");
-            }
-            if (model.Metadata is not null)
-            {
-                embedBuilder.WithImageUrl(model.Metadata.Image);
+            embedBuilder.WithImageUrl(tokenMeta.Image);
 
-                foreach (var attr in model.Metadata.Attributes)
-                {
-                    embedBuilder.AddField($"{attr.Trait}: {attr.Value}", $"{attr.Rarity}%  have this trait");
-                }
+            foreach (var attr in tokenMeta.Attributes)
+            {
+                embedBuilder.AddField($"{attr.Trait}: {attr.Value}", $"{attr.Rarity}%  have this trait");
             }
-
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         }
+
+        await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
     }
 
     private async Task GetMember(SocketSlashCommand command)

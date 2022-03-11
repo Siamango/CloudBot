@@ -12,6 +12,6 @@ public class PathsSettings
     {
         public string Name { get; init; } = null!;
 
-        public string CompletePath { get; init } = null!;
+        public string CompletePath { get; init; } = null!;
     }
 }

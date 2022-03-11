@@ -2,8 +2,11 @@
 using CloudBot.Services;
 using CloudBot.Settings;
 using CloudBot.Statics;
+
 using SolmangoNET.Rpc;
 using Solnet.Rpc;
+using SolmangoNET.Models;
+using CloudBot;
 
 void OnShutdown(IServiceProvider services)
 {
@@ -27,8 +30,33 @@ WebApplication CreateWebApplication()
 
     builder.Services.AddSingleton<IRepository<List<string>>>((services) =>
     {
-        var pathsSettings = builder.Configuration.GetSection(PathsSettings.POSITION).Get<PathsSettings>();
+        var pathsSettings = new PathsSettings();
+        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
+        Console.WriteLine(pathsSettings.Paths.Count);
         return new RepositoryJson<List<string>>(pathsSettings.Get("AddressesList")!.CompletePath);
+    });
+    builder.Services.AddSingleton<IRepository<WhitelistPreferencesModel>>(services =>
+    {
+        var conf = services.GetRequiredService<IConfiguration>();
+        var pathsSettings = conf.GetSection(PathsSettings.POSITION).Get<PathsSettings>();
+
+        Console.WriteLine(pathsSettings.Paths.Count);
+        return new RepositoryJson<WhitelistPreferencesModel>(pathsSettings.Get("WhitelistPref")!.CompletePath);
+    });
+    builder.Services.AddSingleton<IRepository<List<RarityModel>>>(services =>
+    {
+        var pathsSettings = new PathsSettings();
+        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
+        Console.WriteLine(pathsSettings.Paths.Count);
+        return new RepositoryJson<List<RarityModel>>(pathsSettings.Get("Gen0Rarities")!.CompletePath);
+    });
+
+    builder.Services.AddSingleton<IRepository<CandyMachineModel>>(services =>
+    {
+        var pathsSettings = new PathsSettings();
+        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
+        Console.WriteLine(pathsSettings.Paths.Count);
+        return new RepositoryJson<CandyMachineModel>(pathsSettings.Get("Gen0Cm")!.CompletePath);
     });
     builder.Services.AddSingleton<IRpcScheduler>((services) =>
     {
