@@ -4,9 +4,8 @@ using Discord;
 using Discord.WebSocket;
 using Newtonsoft.Json;
 using SolmangoNET.Models;
-using System.Text.Json;
 
-namespace CloudBot.CommandModules;
+namespace CloudBot.Services.CommandModules;
 
 public class CommandModule : AbstractCommandModule
 {
@@ -98,39 +97,5 @@ public class CommandModule : AbstractCommandModule
         }
 
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-    }
-
-    private async Task GetMember(SocketSlashCommand command)
-    {
-        var address = command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"));
-
-        string endpoint = $"{Endpoints.MEMBERS}{$"?address={address!.Value}"}";
-        var response = await httpClient.GetAsync(endpoint);
-        if (!response.IsSuccessStatusCode)
-        {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Red);
-            var jsonElement = JsonConvert.DeserializeObject<JsonElement>(await response.Content.ReadAsStringAsync());
-            embedBuilder.AddField("Error", $"```json\n{JsonConvert.SerializeObject(jsonElement, Formatting.Indented)}```");
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-            return;
-        }
-
-        string res = await response.Content.ReadAsStringAsync();
-        var model = JsonConvert.DeserializeObject<MemberModel>(res);
-        if (model == null)
-        {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Error", $"Wrong backend data");
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-        }
-        else
-        {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Green);
-            embedBuilder.AddField("Result", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```");
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-        }
     }
 }

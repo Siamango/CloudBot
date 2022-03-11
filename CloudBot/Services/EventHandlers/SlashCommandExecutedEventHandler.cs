@@ -1,7 +1,7 @@
-﻿using CloudBot.CommandModules;
+﻿using CloudBot.Services.CommandModules;
 using Discord.WebSocket;
 
-namespace CloudBot.EventHandlers;
+namespace CloudBot.Services.EventHandlers;
 
 public class SlashCommandExecutedEventHandler : IDiscordClientEventHandler
 {

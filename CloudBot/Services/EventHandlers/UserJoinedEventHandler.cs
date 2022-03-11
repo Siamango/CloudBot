@@ -2,18 +2,17 @@
 using Discord;
 using Discord.WebSocket;
 
-namespace CloudBot.EventHandlers;
+namespace CloudBot.Services.EventHandlers;
 
 public class UserJoinedEventHandler : IDiscordClientEventHandler
 {
     private readonly ILogger logger;
-    private readonly IConfiguration configuration;
+
     private readonly IRepository<WhitelistPreferencesModel> whitelistPrefRepo;
 
-    public UserJoinedEventHandler(ILoggerFactory loggerFactory, IConfiguration configuration, IRepository<WhitelistPreferencesModel> whitelistPrefRepo)
+    public UserJoinedEventHandler(ILoggerFactory loggerFactory, IRepository<WhitelistPreferencesModel> whitelistPrefRepo)
     {
         logger = loggerFactory.CreateLogger($"{GetType().Name}");
-        this.configuration = configuration;
         this.whitelistPrefRepo = whitelistPrefRepo;
     }
 

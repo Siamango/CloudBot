@@ -1,6 +1,6 @@
 ﻿using Discord.WebSocket;
 
-namespace CloudBot.CommandModules;
+namespace CloudBot.Services.CommandModules;
 
 public interface ISlashCommandModule
 {

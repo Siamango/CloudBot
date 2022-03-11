@@ -2,26 +2,27 @@
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
-using Newtonsoft.Json;
-using SolmangoNET.Models;
-using System.Text;
+using Solnet.Rpc;
 
-namespace CloudBot.CommandModules;
+namespace CloudBot.Services.CommandModules;
 
 public class AdminCommandModule : AbstractCommandModule
 {
     private readonly IServiceProvider services;
+    private readonly IRpcClient rpcClient;
+    private readonly IRepository<List<string>> addressesRepo;
     private readonly IRepository<WhitelistPreferencesModel> preferencesRepo;
     private readonly ILogger logger;
     private readonly HttpClient httpClient;
 
-    public AdminCommandModule(IServiceProvider services, IConfiguration configuration, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
+    public AdminCommandModule(IServiceProvider services, IRpcClient rpcClient, IRepository<List<string>> addressesRepo, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
     {
         this.services = services;
+        this.rpcClient = rpcClient;
+        this.addressesRepo = addressesRepo;
         this.preferencesRepo = preferencesRepo;
         this.logger = logger;
         httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.Add("Api-Key", configuration.GetValue<string>("Connection:ApiKey"));
     }
 
     protected override void BuildCommands(List<SlashCommandDefinition> commands)
@@ -61,98 +62,41 @@ public class AdminCommandModule : AbstractCommandModule
             .AddOption("whitelisted", ApplicationCommandOptionType.Boolean, "The whitelist status", true)
             .Build(),
             AddToWhitelist));
-
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("promised")
-            .WithDescription("Add promised mints to an address")
-            .AddOption("address", ApplicationCommandOptionType.String, "The address to add the mints to", true)
-            .AddOption("amount", ApplicationCommandOptionType.Integer, "Amount to add", true)
-            .Build(),
-            AddPromised));
-    }
-
-    private async Task AddPromised(SocketSlashCommand command)
-    {
-        if (!await HasPermission(command)) return;
-        var address = command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"));
-        var amount = command.Data.Options.FirstOrDefault(o => o.Name.Equals("amount"));
-        var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={address!.Value}");
-        if (!response.IsSuccessStatusCode)
-        {
-            await command.RespondAsync(null,
-                new Embed[] { new EmbedBuilder().AddField("RPC error", response.Content).Build() });
-            return;
-        }
-        var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
-        if (model == null)
-        {
-            await command.RespondAsync(null, new Embed[] { new EmbedBuilder().AddField("Deserialization error", response.Content).Build() });
-            return;
-        }
-
-        model.Promised += Convert.ToInt32(amount!.Value);
-
-        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
-            new StringContent(JsonConvert.SerializeObject(model, Formatting.Indented),
-            Encoding.UTF8,
-            "application/json"));
-
-        if (!response.IsSuccessStatusCode)
-        {
-            await command.RespondAsync(null, new Embed[] { new EmbedBuilder().AddField("RPC error", response.Content).Build() });
-            return;
-        }
-
-        await command.RespondAsync(null, new Embed[] {
-            new EmbedBuilder().AddField("Success", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```").Build()
-        });
     }
 
     private async Task AddToWhitelist(SocketSlashCommand command)
     {
-        if (!await HasPermission(command)) return;
-        var address = command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"));
-        var whitelisted = command.Data.Options.FirstOrDefault(o => o.Name.Equals("whitelisted"));
-        var response = await httpClient.GetAsync($"{Endpoints.MEMBERS}?address={address!.Value}");
-        if (!response.IsSuccessStatusCode)
+        if (!await CheckPermission(command)) return;
+        var address = (string)command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"))!.Value;
+        var whitelisted = (bool)command.Data.Options.FirstOrDefault(o => o.Name.Equals("whitelisted"))!.Value;
+
+        if (!await rpcClient.IsAddressValid(address))
         {
             await command.RespondAsync(null, new Embed[] {
-                new EmbedBuilder().WithColor(Color.Red).AddField("RPC error", await response.Content.ReadAsStringAsync()).Build()
-            });
+                new EmbedBuilder().WithColor(Color.Red).AddField("Failure", $"```json\nInvalid address```").Build()
+            }, false, true);
             return;
         }
-        var model = JsonConvert.DeserializeObject<MemberModel>(await response.Content.ReadAsStringAsync());
-        if (model == null)
+        if (whitelisted)
         {
-            await command.RespondAsync(null, new Embed[] {
-                new EmbedBuilder().WithColor(Color.Red).AddField("Deserialization error", await response.Content.ReadAsStringAsync()).Build()
-            });
-            return;
+            if (!addressesRepo.Data.Contains(address))
+            {
+                addressesRepo.Data.Add(address);
+            }
         }
-
-        model.Whitelisted = (bool)whitelisted!.Value;
-
-        response = await httpClient.PutAsync($"{Endpoints.MEMBERS}",
-            new StringContent(JsonConvert.SerializeObject(model),
-            Encoding.UTF8, "application/json"));
-
-        if (!response.IsSuccessStatusCode)
+        else
         {
-            await command.RespondAsync(null, new Embed[] {
-                new EmbedBuilder().WithColor(Color.Red).AddField("RPC 2 error", await response.Content.ReadAsStringAsync()).Build()
-            });
-            return;
+            addressesRepo.Data.Remove(address);
         }
-
+        addressesRepo.SaveAsync();
         await command.RespondAsync(null, new Embed[] {
-            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```json\n{JsonConvert.SerializeObject(model, Formatting.Indented)}```").Build()
-        });
+            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```\n{address} new state: {whitelisted}```").Build()
+        }, false, true);
     }
 
     private async Task MintInfo(SocketSlashCommand command)
     {
-        if (!await HasPermission(command)) return;
+        if (!await CheckPermission(command)) return;
 
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Constants.AccentColorFirst);
@@ -175,7 +119,7 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task GetWhitelistFramework(SocketSlashCommand command)
     {
-        if (!await HasPermission(command)) return;
+        if (!await CheckPermission(command)) return;
         if (preferencesRepo is null) return;
 
         EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -193,7 +137,7 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task SetupWhitelistFramework(SocketSlashCommand command)
     {
-        if (!await HasPermission(command)) return;
+        if (!await CheckPermission(command)) return;
         if (preferencesRepo is null) return;
 
         var channel = command.Data.Options.FirstOrDefault(o => o.Name.Equals("channel"));

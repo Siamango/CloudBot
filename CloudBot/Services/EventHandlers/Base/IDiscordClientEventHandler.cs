@@ -1,6 +1,6 @@
 ﻿using Discord.WebSocket;
 
-namespace CloudBot.EventHandlers;
+namespace CloudBot.Services.EventHandlers;
 
 public interface IDiscordClientEventHandler
 {

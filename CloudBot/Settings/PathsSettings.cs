@@ -4,9 +4,9 @@ public class PathsSettings
 {
     public const string POSITION = "Paths";
 
-    public List<Path> Paths { get; init; } = null!;
+    public List<Path> Items { get; init; } = null!;
 
-    public Path? Get(string name) => Paths.Find(x => x.Name == name);
+    public Path? Get(string name) => Items.Find(x => x.Name == name);
 
     public class Path
     {

@@ -27,27 +27,24 @@ WebApplication CreateWebApplication()
 
     builder.Services.Configure<ConnectionSettings>(builder.Configuration.GetSection(ConnectionSettings.POSITION));
     builder.Services.Configure<PathsSettings>(builder.Configuration.GetSection(PathsSettings.POSITION));
+    builder.Services.Configure<DebugSettings>(builder.Configuration.GetSection(DebugSettings.POSITION));
 
     builder.Services.AddSingleton<IRepository<List<string>>>((services) =>
     {
         var pathsSettings = new PathsSettings();
         builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        Console.WriteLine(pathsSettings.Paths.Count);
-        return new RepositoryJson<List<string>>(pathsSettings.Get("AddressesList")!.CompletePath);
+        return new RepositoryJson<List<string>>(pathsSettings.Get("Whitelist")!.CompletePath);
     });
     builder.Services.AddSingleton<IRepository<WhitelistPreferencesModel>>(services =>
     {
         var conf = services.GetRequiredService<IConfiguration>();
         var pathsSettings = conf.GetSection(PathsSettings.POSITION).Get<PathsSettings>();
-
-        Console.WriteLine(pathsSettings.Paths.Count);
         return new RepositoryJson<WhitelistPreferencesModel>(pathsSettings.Get("WhitelistPref")!.CompletePath);
     });
     builder.Services.AddSingleton<IRepository<List<RarityModel>>>(services =>
     {
         var pathsSettings = new PathsSettings();
         builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        Console.WriteLine(pathsSettings.Paths.Count);
         return new RepositoryJson<List<RarityModel>>(pathsSettings.Get("Gen0Rarities")!.CompletePath);
     });
 
@@ -55,7 +52,6 @@ WebApplication CreateWebApplication()
     {
         var pathsSettings = new PathsSettings();
         builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        Console.WriteLine(pathsSettings.Paths.Count);
         return new RepositoryJson<CandyMachineModel>(pathsSettings.Get("Gen0Cm")!.CompletePath);
     });
     builder.Services.AddSingleton<IRpcScheduler>((services) =>

@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 
-namespace CloudBot.CommandModules;
+namespace CloudBot.Services.CommandModules;
 
 public abstract class AbstractCommandModule : ISlashCommandModule
 {
@@ -33,7 +33,7 @@ public abstract class AbstractCommandModule : ISlashCommandModule
         }
     }
 
-    protected async Task<bool> HasPermission(SocketSlashCommand command)
+    protected async Task<bool> CheckPermission(SocketSlashCommand command)
     {
         if (command.User is SocketGuildUser guildUser && guildUser.GuildPermissions.Administrator)
         {

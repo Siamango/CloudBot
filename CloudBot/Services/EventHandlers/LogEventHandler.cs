@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 
-namespace CloudBot.EventHandlers;
+namespace CloudBot.Services.EventHandlers;
 
 public class LogEventHandler : IDiscordClientEventHandler
 {

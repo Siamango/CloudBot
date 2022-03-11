@@ -1,11 +1,18 @@
-﻿using CloudBot.CommandModules;
-using CloudBot.EventHandlers;
+﻿using CloudBot.Services.CommandModules;
+using CloudBot.Services.EventHandlers;
+using Solnet.Rpc;
 using System.Reflection;
 
 namespace CloudBot.Statics;
 
 public static class Extensions
 {
+    public static async Task<bool> IsAddressValid(this IRpcClient client, string address)
+    {
+        var result = await client.GetBalanceAsync(address);
+        return result.WasRequestSuccessfullyHandled;
+    }
+
     public static void AddSlashCommandsModules(this IServiceCollection services)
     {
         Assembly currentAssembly = Assembly.GetExecutingAssembly();

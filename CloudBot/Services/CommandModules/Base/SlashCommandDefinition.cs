@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 
-namespace CloudBot.CommandModules;
+namespace CloudBot.Services.CommandModules;
 
 public class SlashCommandDefinition
 {
