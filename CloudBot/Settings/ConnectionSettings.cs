@@ -2,7 +2,7 @@
 
 public class ConnectionSettings
 {
-    public const string POSITION = "Connection";
+    public const string Position = "Connection";
 
     public string SolanaEndpoint { get; init; } = null!;
 

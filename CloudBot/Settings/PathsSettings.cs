@@ -2,7 +2,7 @@
 
 public class PathsSettings
 {
-    public const string POSITION = "Paths";
+    public const string Position = "Paths";
 
     public List<Path> Items { get; init; } = null!;
 

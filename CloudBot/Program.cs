@@ -1,12 +1,11 @@
 ﻿using BetterHaveIt.Repositories;
+using CloudBot;
 using CloudBot.Services;
 using CloudBot.Settings;
 using CloudBot.Statics;
-
+using SolmangoNET.Models;
 using SolmangoNET.Rpc;
 using Solnet.Rpc;
-using SolmangoNET.Models;
-using CloudBot;
 
 void OnShutdown(IServiceProvider services)
 {
@@ -23,47 +22,27 @@ WebApplication CreateWebApplication()
 
     builder.Services.AddSlashCommandsModules();
     builder.Services.AddDiscordClientEventHandlers();
-    builder.Services.AddSingleton<ICoreRunner, BotCoreRunner>();
+    builder.Services.AddHostedService<BotCoreRunner>();
+    builder.Services.AddHostedService<RepositorySerializer>();
 
-    builder.Services.Configure<ConnectionSettings>(builder.Configuration.GetSection(ConnectionSettings.POSITION));
-    builder.Services.Configure<PathsSettings>(builder.Configuration.GetSection(PathsSettings.POSITION));
-    builder.Services.Configure<DebugSettings>(builder.Configuration.GetSection(DebugSettings.POSITION));
+    // Settings
+    builder.Services.Configure<ConnectionSettings>(builder.Configuration.GetSection(ConnectionSettings.Position));
+    builder.Services.Configure<PathsSettings>(builder.Configuration.GetSection(PathsSettings.Position));
+    builder.Services.Configure<DebugSettings>(builder.Configuration.GetSection(DebugSettings.Position));
 
-    builder.Services.AddSingleton<IRepository<List<string>>>((services) =>
-    {
-        var pathsSettings = new PathsSettings();
-        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        return new RepositoryJson<List<string>>(pathsSettings.Get("Whitelist")!.CompletePath);
-    });
-    builder.Services.AddSingleton<IRepository<WhitelistPreferencesModel>>(services =>
-    {
-        var conf = services.GetRequiredService<IConfiguration>();
-        var pathsSettings = conf.GetSection(PathsSettings.POSITION).Get<PathsSettings>();
-        return new RepositoryJson<WhitelistPreferencesModel>(pathsSettings.Get("WhitelistPref")!.CompletePath);
-    });
-    builder.Services.AddSingleton<IRepository<List<RarityModel>>>(services =>
-    {
-        var pathsSettings = new PathsSettings();
-        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        return new RepositoryJson<List<RarityModel>>(pathsSettings.Get("Gen0Rarities")!.CompletePath);
-    });
+    // Repositories
+    builder.Services.AddSingleton<IRepository<List<string>>>((_) => new RepositoryJson<List<string>>(builder.Configuration.GetSection(PathsSettings.Position).Get<PathsSettings>().Get("Whitelist")!.CompletePath));
+    builder.Services.AddSingleton<IRepository<WhitelistPreferencesModel>>(_ => new RepositoryJson<WhitelistPreferencesModel>(builder.Configuration.GetSection(PathsSettings.Position).Get<PathsSettings>().Get("WhitelistPref")!.CompletePath));
+    builder.Services.AddSingleton<IRepository<List<RarityModel>>>(_ => new RepositoryJson<List<RarityModel>>(builder.Configuration.GetSection(PathsSettings.Position).Get<PathsSettings>().Get("Gen0Rarities")!.CompletePath));
+    builder.Services.AddSingleton<IRepository<CandyMachineModel>>(_ => new RepositoryJson<CandyMachineModel>(builder.Configuration.GetSection(PathsSettings.Position).Get<PathsSettings>().Get("Gen0Cm")!.CompletePath));
 
-    builder.Services.AddSingleton<IRepository<CandyMachineModel>>(services =>
-    {
-        var pathsSettings = new PathsSettings();
-        builder.Configuration.GetSection(PathsSettings.POSITION).Bind(pathsSettings);
-        return new RepositoryJson<CandyMachineModel>(pathsSettings.Get("Gen0Cm")!.CompletePath);
-    });
-    builder.Services.AddSingleton<IRpcScheduler>((services) =>
+    // Solana
+    builder.Services.AddSingleton((_) => ClientFactory.GetClient(builder.Configuration.GetSection(ConnectionSettings.Position).Get<ConnectionSettings>().SolanaEndpoint));
+    builder.Services.AddSingleton<IRpcScheduler>((_) =>
     {
         var scheduler = new BasicRpcScheduler(100);
         scheduler.Start();
         return scheduler;
-    });
-    builder.Services.AddSingleton<IRpcClient>((services) =>
-    {
-        var connectionSettings = builder.Configuration.GetSection(ConnectionSettings.POSITION).Get<ConnectionSettings>();
-        return ClientFactory.GetClient(connectionSettings.SolanaEndpoint);
     });
 
     var app = builder.Build();
@@ -76,8 +55,4 @@ WebApplication CreateWebApplication()
 }
 
 var app = CreateWebApplication();
-var core = app.Services.GetService<ICoreRunner>();
-if (core != null)
-{
-    await core.RunAsync();
-}
+await app.RunAsync();

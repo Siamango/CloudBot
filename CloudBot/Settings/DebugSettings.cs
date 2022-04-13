@@ -2,7 +2,7 @@
 
 public class DebugSettings
 {
-    public const string POSITION = "Debug";
+    public const string Position = "Debug";
 
     public bool RefreshCommands { get; init; } = false;
 }

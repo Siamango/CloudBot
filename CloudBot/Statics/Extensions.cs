@@ -20,6 +20,10 @@ public static class Extensions
         foreach (var type in types)
         {
             services.AddSingleton(typeof(ISlashCommandModule), type);
+            if (typeof(IHostedService).IsAssignableFrom(type))
+            {
+                services.AddSingleton(typeof(IHostedService), type);
+            }
         }
     }
 
@@ -30,6 +34,10 @@ public static class Extensions
         foreach (var type in types)
         {
             services.AddSingleton(typeof(IDiscordClientEventHandler), type);
+            if (typeof(IHostedService).IsAssignableFrom(type))
+            {
+                services.AddSingleton(typeof(IHostedService), type);
+            }
         }
     }
 }
