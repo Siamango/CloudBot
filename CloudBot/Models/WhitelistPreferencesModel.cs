@@ -1,4 +1,4 @@
-﻿namespace CloudBot;
+﻿namespace CloudBot.Models;
 
 [Serializable]
 public class WhitelistPreferencesModel

@@ -33,21 +33,5 @@ public abstract class AbstractCommandModule : ISlashCommandModule
         }
     }
 
-    protected async Task<bool> CheckPermission(SocketSlashCommand command)
-    {
-        if (command.User is SocketGuildUser guildUser && guildUser.GuildPermissions.Administrator)
-        {
-            return true;
-        }
-        else
-        {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Forbidden", $"You do not have the permission to run the command");
-            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-            return false;
-        }
-    }
-
     protected abstract void BuildCommands(List<SlashCommandDefinition> commands);
 }

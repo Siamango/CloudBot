@@ -1,4 +1,5 @@
 ﻿using BetterHaveIt.Repositories;
+using CloudBot.Models;
 using Discord;
 using Discord.WebSocket;
 

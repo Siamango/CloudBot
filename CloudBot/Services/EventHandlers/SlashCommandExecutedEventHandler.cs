@@ -1,4 +1,5 @@
 ﻿using CloudBot.Services.CommandModules;
+using Discord;
 using Discord.WebSocket;
 
 namespace CloudBot.Services.EventHandlers;
@@ -26,11 +27,18 @@ public class SlashCommandExecutedEventHandler : IDiscordClientEventHandler
         foreach (var module in slashCommandModules)
         {
             var selected = module.GetOrDefault(slashCommand.CommandName);
-            if (selected is not null)
+            if (slashCommand.User is not SocketGuildUser guildUser) return;
+            if (selected is null) return;
+            if (selected.RequiresAdministrator && !guildUser.GuildPermissions.Administrator)
             {
-                await selected.Delegate(slashCommand);
-                break;
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                embedBuilder.WithColor(Color.Red);
+                embedBuilder.AddField("Forbidden", $"You do not have the permission to run the command");
+                await slashCommand.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+                return;
             }
+            await selected.Delegate(slashCommand);
+            break;
         }
     }
 }

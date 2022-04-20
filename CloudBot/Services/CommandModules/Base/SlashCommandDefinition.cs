@@ -9,9 +9,12 @@ public class SlashCommandDefinition
 
     public Func<SocketSlashCommand, Task> Delegate { get; init; }
 
-    public SlashCommandDefinition(SlashCommandProperties properties, Func<SocketSlashCommand, Task> @delegate)
+    public bool RequiresAdministrator { get; set; }
+
+    public SlashCommandDefinition(SlashCommandProperties properties, Func<SocketSlashCommand, Task> commandDelegate, bool requiresAdministrator = false)
     {
+        RequiresAdministrator = requiresAdministrator;
         Properties = properties;
-        Delegate = @delegate;
+        Delegate = commandDelegate;
     }
 }

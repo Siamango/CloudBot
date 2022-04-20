@@ -1,4 +1,5 @@
 ﻿using BetterHaveIt.Repositories;
+using CloudBot.Models;
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
@@ -11,16 +12,18 @@ public class AdminCommandModule : AbstractCommandModule
     private readonly IServiceProvider services;
     private readonly IRpcClient rpcClient;
     private readonly IRepository<List<string>> addressesRepo;
-    private readonly IRepository<WhitelistPreferencesModel> preferencesRepo;
+    private readonly IRepository<PreferencesModel> preferencesRepo;
+    private readonly IRepository<WhitelistPreferencesModel> wlPreferencesRepo;
     private readonly ILogger logger;
     private readonly HttpClient httpClient;
 
-    public AdminCommandModule(IServiceProvider services, IRpcClient rpcClient, IRepository<List<string>> addressesRepo, IRepository<WhitelistPreferencesModel> preferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
+    public AdminCommandModule(IServiceProvider services, IRpcClient rpcClient, IRepository<List<string>> addressesRepo, IRepository<PreferencesModel> prefrencesRepo, IRepository<WhitelistPreferencesModel> wlPreferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
     {
         this.services = services;
         this.rpcClient = rpcClient;
         this.addressesRepo = addressesRepo;
-        this.preferencesRepo = preferencesRepo;
+        this.preferencesRepo = prefrencesRepo;
+        this.wlPreferencesRepo = wlPreferencesRepo;
         this.logger = logger;
         httpClient = new HttpClient();
     }
@@ -38,21 +41,21 @@ public class AdminCommandModule : AbstractCommandModule
             .AddOption("confirmed_role", ApplicationCommandOptionType.Role, "The whitelist confirmed role", false)
             .AddOption("announcements", ApplicationCommandOptionType.Channel, "The channel in which announcements are made", false)
             .Build(),
-            SetupWhitelistFramework));
+            SetupWhitelistFramework, true));
 
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("wlget")
             .WithDescription("Get the current whitelist setup")
             .Build(),
-            GetWhitelistFramework));
+            GetWhitelistFramework, true));
 
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
             .WithName("mintinfo")
             .WithDescription("Get the current mint info")
             .Build(),
-            MintInfo));
+            MintInfo, true));
 
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
@@ -61,12 +64,53 @@ public class AdminCommandModule : AbstractCommandModule
             .AddOption("address", ApplicationCommandOptionType.String, "The address to add", true)
             .AddOption("whitelisted", ApplicationCommandOptionType.Boolean, "The whitelist status", true)
             .Build(),
-            AddToWhitelist));
+            AddToWhitelist, true));
+
+        commands.Add(new SlashCommandDefinition(
+            new SlashCommandBuilder()
+            .WithName("autoreact")
+            .WithDescription("Add/remove a channel to autoreact module")
+            .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", true)
+            .AddOption("add", ApplicationCommandOptionType.Boolean, "Whether to add or to remove", true)
+            .Build(),
+            ModifyAutoReactChannels, true));
+    }
+
+    private async Task ModifyAutoReactChannels(SocketSlashCommand command)
+    {
+        EmbedBuilder embedBuilder = new EmbedBuilder();
+        var channel = command.Data.Options.FirstOrDefault(o => o.Name.Equals("channel"));
+        var add = command.Data.Options.FirstOrDefault(o => o.Name.Equals("add"));
+        if (channel is null || add is null || preferencesRepo is null)
+        {
+            embedBuilder.WithColor(Color.Red);
+            embedBuilder.AddField("Failure", "Autoreact channels: \n" + string.Join("\n", preferencesRepo.Data.AutoEmojiReactChannels));
+            await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+            return;
+        }
+        var channelId = ((SocketChannel)channel!.Value).Id;
+        var addBool = (bool)add!.Value;
+        if (!addBool)
+        {
+            preferencesRepo.Data.AutoEmojiReactChannels.RemoveAll(c => c.Equals(channelId));
+        }
+        else
+        {
+            if (!preferencesRepo.Data.AutoEmojiReactChannels.Contains(channelId))
+            {
+                preferencesRepo.Data.AutoEmojiReactChannels.Add(channelId);
+            }
+        }
+
+        embedBuilder.WithColor(Color.Green);
+        embedBuilder.AddField("Success", "Autoreact channels: \n" + string.Join("\n", preferencesRepo.Data.AutoEmojiReactChannels));
+        await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+        preferencesRepo.SaveAsync();
+        return;
     }
 
     private async Task AddToWhitelist(SocketSlashCommand command)
     {
-        if (!await CheckPermission(command)) return;
         var address = (string)command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"))!.Value;
         var whitelisted = (bool)command.Data.Options.FirstOrDefault(o => o.Name.Equals("whitelisted"))!.Value;
 
@@ -96,8 +140,6 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task MintInfo(SocketSlashCommand command)
     {
-        if (!await CheckPermission(command)) return;
-
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Constants.AccentColorFirst);
         embedBuilder.WithTitle("📋 MINT DETAILS 📋");
@@ -119,26 +161,24 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task GetWhitelistFramework(SocketSlashCommand command)
     {
-        if (!await CheckPermission(command)) return;
-        if (preferencesRepo is null) return;
+        if (wlPreferencesRepo is null) return;
 
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Color.Green);
-        embedBuilder.AddField("Whitelist confirmation channel", $"<#{preferencesRepo.Data.ListenChannelId}>");
-        embedBuilder.AddField("Whitelist size", $"{preferencesRepo.Data.MaxSize}");
-        embedBuilder.AddField("Whitelist enable invites rewards", $"{preferencesRepo.Data.InvitesRewardEnabled}");
-        embedBuilder.AddField("Whitelist invites required", $"{preferencesRepo.Data.InvitesRequired}");
-        embedBuilder.AddField("Whitelist pending role", $"<@&{preferencesRepo.Data.PendingRoleId}>");
-        embedBuilder.AddField("Whitelist confirmed role", $"<@&{preferencesRepo.Data.ConfirmedRoleId}>");
-        embedBuilder.AddField("Whitelist announcements channel", $"<#{preferencesRepo.Data.AnnouncementsChannelId}>");
+        embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
+        embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
+        embedBuilder.AddField("Whitelist enable invites rewards", $"{wlPreferencesRepo.Data.InvitesRewardEnabled}");
+        embedBuilder.AddField("Whitelist invites required", $"{wlPreferencesRepo.Data.InvitesRequired}");
+        embedBuilder.AddField("Whitelist pending role", $"<@&{wlPreferencesRepo.Data.PendingRoleId}>");
+        embedBuilder.AddField("Whitelist confirmed role", $"<@&{wlPreferencesRepo.Data.ConfirmedRoleId}>");
+        embedBuilder.AddField("Whitelist announcements channel", $"<#{wlPreferencesRepo.Data.AnnouncementsChannelId}>");
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
         await Task.CompletedTask;
     }
 
     private async Task SetupWhitelistFramework(SocketSlashCommand command)
     {
-        if (!await CheckPermission(command)) return;
-        if (preferencesRepo is null) return;
+        if (wlPreferencesRepo is null) return;
 
         var channel = command.Data.Options.FirstOrDefault(o => o.Name.Equals("channel"));
         var size = command.Data.Options.FirstOrDefault(o => o.Name.Equals("size"));
@@ -147,26 +187,26 @@ public class AdminCommandModule : AbstractCommandModule
         var confirmedRole = command.Data.Options.FirstOrDefault(o => o.Name.Equals("confirmed_role"));
         var announcements = command.Data.Options.FirstOrDefault(o => o.Name.Equals("announcements"));
 
-        preferencesRepo.Data.ListenChannelId = channel == null ? 0 : ((SocketChannel)channel.Value).Id;
-        preferencesRepo.Data.MaxSize = size == null ? 0 : Convert.ToInt32(size.Value);
-        preferencesRepo.Data.InvitesRequired = invites == null ? -1 : Convert.ToInt32(invites.Value);
-        preferencesRepo.Data.InvitesRewardEnabled = preferencesRepo.Data.InvitesRequired > 0;
-        preferencesRepo.Data.PendingRoleId = pendingRole == null ? 0 : ((SocketRole)pendingRole.Value).Id;
-        preferencesRepo.Data.ConfirmedRoleId = confirmedRole == null ? 0 : ((SocketRole)confirmedRole.Value).Id;
-        preferencesRepo.Data.AnnouncementsChannelId = announcements == null ? 0 : ((SocketChannel)announcements.Value).Id;
+        wlPreferencesRepo.Data.ListenChannelId = channel == null ? 0 : ((SocketChannel)channel.Value).Id;
+        wlPreferencesRepo.Data.MaxSize = size == null ? 0 : Convert.ToInt32(size.Value);
+        wlPreferencesRepo.Data.InvitesRequired = invites == null ? -1 : Convert.ToInt32(invites.Value);
+        wlPreferencesRepo.Data.InvitesRewardEnabled = wlPreferencesRepo.Data.InvitesRequired > 0;
+        wlPreferencesRepo.Data.PendingRoleId = pendingRole == null ? 0 : ((SocketRole)pendingRole.Value).Id;
+        wlPreferencesRepo.Data.ConfirmedRoleId = confirmedRole == null ? 0 : ((SocketRole)confirmedRole.Value).Id;
+        wlPreferencesRepo.Data.AnnouncementsChannelId = announcements == null ? 0 : ((SocketChannel)announcements.Value).Id;
 
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Color.Green);
-        embedBuilder.AddField("Whitelist confirmation channel", $"<#{preferencesRepo.Data.ListenChannelId}>");
-        embedBuilder.AddField("Whitelist size", $"{preferencesRepo.Data.MaxSize}");
-        embedBuilder.AddField("Whitelist enable invites rewards", $"{preferencesRepo.Data.InvitesRewardEnabled}");
-        embedBuilder.AddField("Whitelist invites required", $"{preferencesRepo.Data.InvitesRequired}");
-        embedBuilder.AddField("Whitelist pending role", $"<@&{preferencesRepo.Data.PendingRoleId}>");
-        embedBuilder.AddField("Whitelist confirmed role", $"<@&{preferencesRepo.Data.ConfirmedRoleId}>");
-        embedBuilder.AddField("Whitelist announcements channel", $"<#{preferencesRepo.Data.AnnouncementsChannelId}>");
+        embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
+        embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
+        embedBuilder.AddField("Whitelist enable invites rewards", $"{wlPreferencesRepo.Data.InvitesRewardEnabled}");
+        embedBuilder.AddField("Whitelist invites required", $"{wlPreferencesRepo.Data.InvitesRequired}");
+        embedBuilder.AddField("Whitelist pending role", $"<@&{wlPreferencesRepo.Data.PendingRoleId}>");
+        embedBuilder.AddField("Whitelist confirmed role", $"<@&{wlPreferencesRepo.Data.ConfirmedRoleId}>");
+        embedBuilder.AddField("Whitelist announcements channel", $"<#{wlPreferencesRepo.Data.AnnouncementsChannelId}>");
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
 
-        preferencesRepo.SaveAsync();
+        wlPreferencesRepo.SaveAsync();
         await Task.CompletedTask;
     }
 }
