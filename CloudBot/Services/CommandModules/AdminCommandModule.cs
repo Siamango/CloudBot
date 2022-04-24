@@ -84,7 +84,7 @@ public class AdminCommandModule : AbstractCommandModule
         if (channel is null || add is null || preferencesRepo is null)
         {
             embedBuilder.WithColor(Color.Red);
-            embedBuilder.AddField("Failure", "Autoreact channels: \n" + string.Join("\n", preferencesRepo.Data.AutoEmojiReactChannels));
+            embedBuilder.AddField("Failure", "Unable to fetch services");
             await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
             return;
         }

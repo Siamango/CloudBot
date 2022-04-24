@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace CloudBot.Services;
 
-public class BotCoreRunner : IHostedService
+public class BotCoreRunner : IRunner
 {
     private readonly IEnumerable<IDiscordClientEventHandler> eventHandlers;
     private readonly IOptionsMonitor<ConnectionSettings> connectionSettings;
@@ -29,7 +29,7 @@ public class BotCoreRunner : IHostedService
         });
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Discord application token {token}", connectionSettings.CurrentValue.DiscordToken);
         logger.LogInformation("Registering {amount} event handlers", eventHandlers.Count());
@@ -40,10 +40,5 @@ public class BotCoreRunner : IHostedService
         await client.SetGameAsync("⚡ Zapping Citizens ⚡");
         await client.LoginAsync(TokenType.Bot, connectionSettings.CurrentValue.DiscordToken);
         await client.StartAsync();
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken)
-    {
-        await client.DisposeAsync();
     }
 }

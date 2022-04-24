@@ -14,8 +14,7 @@ WebApplication CreateWebApplication()
 
     builder.Services.AddSlashCommandsModules();
     builder.Services.AddDiscordClientEventHandlers();
-    builder.Services.AddHostedService<BotCoreRunner>();
-    builder.Services.AddHostedService<RepositorySerializer>();
+    builder.Services.AddOfflineRunner<BotCoreRunner>();
 
     // Settings
     builder.Services.Configure<ConnectionSettings>(builder.Configuration.GetSection(ConnectionSettings.Position));
@@ -43,4 +42,4 @@ WebApplication CreateWebApplication()
 }
 
 var app = CreateWebApplication();
-await app.RunAsync();
+await app.RunOfflineAsync(CancellationToken.None);

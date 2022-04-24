@@ -1,4 +1,5 @@
-﻿using CloudBot.Services.CommandModules;
+﻿using CloudBot.Services;
+using CloudBot.Services.CommandModules;
 using CloudBot.Services.EventHandlers;
 using Solnet.Rpc;
 using System.Reflection;
@@ -11,6 +12,14 @@ public static class Extensions
     {
         var result = await client.GetBalanceAsync(address);
         return result.WasRequestSuccessfullyHandled;
+    }
+
+    public static void AddOfflineRunner<T>(this IServiceCollection services) where T : class, IRunner => _ = services.AddSingleton<IRunner, T>();
+
+    public static Task RunOfflineAsync(this WebApplication app, CancellationToken token)
+    {
+        var runner = app.Services.GetRequiredService<IRunner>();
+        return runner.RunAsync(token);
     }
 
     public static void AddSlashCommandsModules(this IServiceCollection services)
