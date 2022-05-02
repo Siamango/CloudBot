@@ -34,7 +34,7 @@ public class CommandModule : AbstractCommandModule
         if (command.User is SocketGuildUser guildUser)
         {
             var invites = await guildUser.Guild.GetInvitesAsync();
-            int uses = invites.Where(i => i.Inviter.Id.Equals(guildUser.Id)).Sum(i => i.Uses) ?? 0;
+            var uses = invites.Where(i => i.Inviter.Id.Equals(guildUser.Id)).Sum(i => i.Uses) ?? 0;
             await command.RespondAsync($"{guildUser.Mention} You invited {uses} Citizens 😎");
         }
     }
@@ -43,8 +43,8 @@ public class CommandModule : AbstractCommandModule
     {
         var id = command.Data.Options.FirstOrDefault(o => o.Name.Equals("id"));
 
-        int idInt = Convert.ToInt32(id!.Value);
-        IRepository<CandyMachineModel> cmRepo = services.GetRequiredService<IRepository<CandyMachineModel>>();
+        var idInt = Convert.ToInt32(id!.Value);
+        var cmRepo = services.GetRequiredService<IRepository<CandyMachineModel>>();
         EmbedBuilder embedBuilder;
         if (!cmRepo.Data.Items.TryGetValue(idInt, out var match))
         {
@@ -55,19 +55,20 @@ public class CommandModule : AbstractCommandModule
             return;
         }
 
-        IRepository<List<RarityModel>> raritiesRepo = services.GetRequiredService<IRepository<List<RarityModel>>>();
+        var raritiesRepo = services.GetRequiredService<IRepository<List<RarityModel>>>();
         var rarity = raritiesRepo.Data.FirstOrDefault(r => r.Id == idInt);
 
         embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Constants.AccentColorFirst);
+
         var req = await httpClient.GetAsync(match.Link);
 
-        string content = await req.Content.ReadAsStringAsync();
+        var content = await req.Content.ReadAsStringAsync();
         var tokenMeta = JsonConvert.DeserializeObject<TokenMetadataModel>(content);
         if (rarity is not null)
         {
-            double percentage = rarity.Percentage;
-            string emoji = string.Empty;
+            var percentage = rarity.Percentage;
+            var emoji = string.Empty;
             if (percentage <= 75)
             {
                 emoji = "\n🥉 ";

@@ -22,7 +22,7 @@ public class AdminCommandModule : AbstractCommandModule
         this.services = services;
         this.rpcClient = rpcClient;
         this.addressesRepo = addressesRepo;
-        this.preferencesRepo = prefrencesRepo;
+        preferencesRepo = prefrencesRepo;
         this.wlPreferencesRepo = wlPreferencesRepo;
         this.logger = logger;
         httpClient = new HttpClient();
@@ -78,7 +78,7 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task ModifyAutoReactChannels(SocketSlashCommand command)
     {
-        EmbedBuilder embedBuilder = new EmbedBuilder();
+        var embedBuilder = new EmbedBuilder();
         var channel = command.Data.Options.FirstOrDefault(o => o.Name.Equals("channel"));
         var add = command.Data.Options.FirstOrDefault(o => o.Name.Equals("add"));
         if (channel is null || add is null || preferencesRepo is null)
@@ -140,7 +140,7 @@ public class AdminCommandModule : AbstractCommandModule
 
     private async Task MintInfo(SocketSlashCommand command)
     {
-        EmbedBuilder embedBuilder = new EmbedBuilder();
+        var embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Constants.AccentColorFirst);
         embedBuilder.WithTitle("📋 MINT DETAILS 📋");
         embedBuilder.AddField("Public sale start", "🔷 `TUE 9:00 PM UTC February 1, 2022`\n" +
@@ -163,7 +163,7 @@ public class AdminCommandModule : AbstractCommandModule
     {
         if (wlPreferencesRepo is null) return;
 
-        EmbedBuilder embedBuilder = new EmbedBuilder();
+        var embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Color.Green);
         embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
         embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
@@ -195,7 +195,7 @@ public class AdminCommandModule : AbstractCommandModule
         wlPreferencesRepo.Data.ConfirmedRoleId = confirmedRole == null ? 0 : ((SocketRole)confirmedRole.Value).Id;
         wlPreferencesRepo.Data.AnnouncementsChannelId = announcements == null ? 0 : ((SocketChannel)announcements.Value).Id;
 
-        EmbedBuilder embedBuilder = new EmbedBuilder();
+        var embedBuilder = new EmbedBuilder();
         embedBuilder.WithColor(Color.Green);
         embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
         embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
