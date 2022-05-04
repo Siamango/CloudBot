@@ -16,18 +16,13 @@ For example, in the above mentioned class, the only dependency is a `ILoggerFact
 By simply putting a parameter of that type in the constructor, it is assured that the instance will be resolved at runtime.    
 If the instance cannot be resolved, an exception is automatically thrown.   
 To add a new dependency, simply add it as a parameter in the constructor.    
-For example, if the `IRepository<WhitelistPreferencesModel>` would be needed (the whitelist repository handling the json file), it would be enough to change 
-the constructor signature to:
-```c#
-public LogEventHandler(ILoggerFactory loggerFactory, IRepository<WhitelistPreferencesModel> whitelistPrefRepo)
-```
 
 
-### Command Modules
+### Slash Command Modules
 Command modules are automatically registered in the dependency injection framework using reflection.
 To add a slash command module:
 - Create a class (preferably in CommandModules folder)
-- Implement the interface ISlashCommandModule
+- Inherit the abstract class `AbstractCommandModule`
 - Implement functionalities   
 
 Done, no need to explicitly register anything, the class will be registered as a service automatically.
@@ -36,7 +31,7 @@ Done, no need to explicitly register anything, the class will be registered as a
 Event handlers are automatically registered in the dependency injection framework using reflection.
 To add an event handler:
 - Create a class (preferably in EventHandlers folder)
-- Implement the interface IDiscordClientEventHandler
+- Implement the interface `IDiscordClientEventHandler`
 - Implement functionalities    
 
 Done, no need to explicitly register anything, the class will be registered as a service automatically.
