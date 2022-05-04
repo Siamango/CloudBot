@@ -20,13 +20,13 @@ public class CommandModule : AbstractCommandModule
 
     protected override void BuildCommands(List<SlashCommandDefinition> commands)
     {
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("rarity-score")
-            .WithDescription("Get the rarity score of a Cloudy")
-            .AddOption("id", ApplicationCommandOptionType.Integer, "The # number of the Cloudy", true)
-            .Build(),
-            GetRarityScore));
+        //commands.Add(new SlashCommandDefinition(
+        //    new SlashCommandBuilder()
+        //    .WithName("rarity-score")
+        //    .WithDescription("Get the rarity score of a Cloudy")
+        //    .AddOption("id", ApplicationCommandOptionType.Integer, "The # number of the Cloudy", true)
+        //    .Build(),
+        //    GetRarityScore));
     }
 
     private async Task GetInvites(SocketSlashCommand command)

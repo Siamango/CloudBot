@@ -6,7 +6,7 @@ public class PathsSettings
 
     public List<Path> Items { get; init; } = null!;
 
-    public Path? Get(string name) => Items.Find(x => x.Name == name);
+    public Path Get(string name) => Items.Find(x => x.Name == name)!;
 
     public class Path
     {

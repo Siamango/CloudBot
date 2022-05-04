@@ -40,5 +40,10 @@ public class BotCoreRunner : IRunner
         await client.SetGameAsync("⚡ Zapping Citizens ⚡");
         await client.LoginAsync(TokenType.Bot, connectionSettings.CurrentValue.DiscordToken);
         await client.StartAsync();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.CompletedTask;
+        }
     }
 }

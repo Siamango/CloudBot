@@ -3,68 +3,26 @@ using CloudBot.Models;
 using CloudBot.Statics;
 using Discord;
 using Discord.WebSocket;
-using Solnet.Rpc;
 
 namespace CloudBot.Services.CommandModules;
 
 public class AdminCommandModule : AbstractCommandModule
 {
-    private readonly IServiceProvider services;
-    private readonly IRpcClient rpcClient;
-    private readonly IRepository<List<string>> addressesRepo;
     private readonly IRepository<PreferencesModel> preferencesRepo;
-    private readonly IRepository<WhitelistPreferencesModel> wlPreferencesRepo;
-    private readonly ILogger logger;
-    private readonly HttpClient httpClient;
 
-    public AdminCommandModule(IServiceProvider services, IRpcClient rpcClient, IRepository<List<string>> addressesRepo, IRepository<PreferencesModel> prefrencesRepo, IRepository<WhitelistPreferencesModel> wlPreferencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
+    public AdminCommandModule(IRepository<PreferencesModel> prefrencesRepo, ILogger<AdminCommandModule> logger) : base(logger)
     {
-        this.services = services;
-        this.rpcClient = rpcClient;
-        this.addressesRepo = addressesRepo;
         preferencesRepo = prefrencesRepo;
-        this.wlPreferencesRepo = wlPreferencesRepo;
-        this.logger = logger;
-        httpClient = new HttpClient();
     }
 
     protected override void BuildCommands(List<SlashCommandDefinition> commands)
     {
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
-            .WithName("wlsetup")
-            .WithDescription("Set the whitelist framework")
-            .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel to listen for whitelist addresses", false)
-            .AddOption("size", ApplicationCommandOptionType.Integer, "Set the maximum size for the whitelist", false)
-            .AddOption("pending_role", ApplicationCommandOptionType.Role, "The whitelist pending role", false)
-            .AddOption("invites", ApplicationCommandOptionType.Integer, "The number of invites to obtain the pending whitelist role", false)
-            .AddOption("confirmed_role", ApplicationCommandOptionType.Role, "The whitelist confirmed role", false)
-            .AddOption("announcements", ApplicationCommandOptionType.Channel, "The channel in which announcements are made", false)
-            .Build(),
-            SetupWhitelistFramework, true));
-
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("wlget")
-            .WithDescription("Get the current whitelist setup")
-            .Build(),
-            GetWhitelistFramework, true));
-
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
             .WithName("mintinfo")
             .WithDescription("Get the current mint info")
             .Build(),
             MintInfo, true));
-
-        commands.Add(new SlashCommandDefinition(
-            new SlashCommandBuilder()
-            .WithName("wlset")
-            .WithDescription("Add a current address to the whitelist")
-            .AddOption("address", ApplicationCommandOptionType.String, "The address to add", true)
-            .AddOption("whitelisted", ApplicationCommandOptionType.Boolean, "The whitelist status", true)
-            .Build(),
-            AddToWhitelist, true));
 
         commands.Add(new SlashCommandDefinition(
             new SlashCommandBuilder()
@@ -109,35 +67,6 @@ public class AdminCommandModule : AbstractCommandModule
         return;
     }
 
-    private async Task AddToWhitelist(SocketSlashCommand command)
-    {
-        var address = (string)command.Data.Options.FirstOrDefault(o => o.Name.Equals("address"))!.Value;
-        var whitelisted = (bool)command.Data.Options.FirstOrDefault(o => o.Name.Equals("whitelisted"))!.Value;
-
-        if (!await rpcClient.IsAddressValid(address))
-        {
-            await command.RespondAsync(null, new Embed[] {
-                new EmbedBuilder().WithColor(Color.Red).AddField("Failure", $"```json\nInvalid address```").Build()
-            }, false, true);
-            return;
-        }
-        if (whitelisted)
-        {
-            if (!addressesRepo.Data.Contains(address))
-            {
-                addressesRepo.Data.Add(address);
-            }
-        }
-        else
-        {
-            addressesRepo.Data.Remove(address);
-        }
-        addressesRepo.SaveAsync();
-        await command.RespondAsync(null, new Embed[] {
-            new EmbedBuilder().WithColor(Color.Green).AddField("Success", $"```\n{address} new state: {whitelisted}```").Build()
-        }, false, true);
-    }
-
     private async Task MintInfo(SocketSlashCommand command)
     {
         var embedBuilder = new EmbedBuilder();
@@ -156,57 +85,6 @@ public class AdminCommandModule : AbstractCommandModule
             "Remember to keep at least **0.05 + 0.42 SOL (single mint price)** in the wallet in order to make up for the GAS FEES");
 
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-        await Task.CompletedTask;
-    }
-
-    private async Task GetWhitelistFramework(SocketSlashCommand command)
-    {
-        if (wlPreferencesRepo is null) return;
-
-        var embedBuilder = new EmbedBuilder();
-        embedBuilder.WithColor(Color.Green);
-        embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
-        embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
-        embedBuilder.AddField("Whitelist enable invites rewards", $"{wlPreferencesRepo.Data.InvitesRewardEnabled}");
-        embedBuilder.AddField("Whitelist invites required", $"{wlPreferencesRepo.Data.InvitesRequired}");
-        embedBuilder.AddField("Whitelist pending role", $"<@&{wlPreferencesRepo.Data.PendingRoleId}>");
-        embedBuilder.AddField("Whitelist confirmed role", $"<@&{wlPreferencesRepo.Data.ConfirmedRoleId}>");
-        embedBuilder.AddField("Whitelist announcements channel", $"<#{wlPreferencesRepo.Data.AnnouncementsChannelId}>");
-        await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-        await Task.CompletedTask;
-    }
-
-    private async Task SetupWhitelistFramework(SocketSlashCommand command)
-    {
-        if (wlPreferencesRepo is null) return;
-
-        var channel = command.Data.Options.FirstOrDefault(o => o.Name.Equals("channel"));
-        var size = command.Data.Options.FirstOrDefault(o => o.Name.Equals("size"));
-        var invites = command.Data.Options.FirstOrDefault(o => o.Name.Equals("invites"));
-        var pendingRole = command.Data.Options.FirstOrDefault(o => o.Name.Equals("pending_role"));
-        var confirmedRole = command.Data.Options.FirstOrDefault(o => o.Name.Equals("confirmed_role"));
-        var announcements = command.Data.Options.FirstOrDefault(o => o.Name.Equals("announcements"));
-
-        wlPreferencesRepo.Data.ListenChannelId = channel == null ? 0 : ((SocketChannel)channel.Value).Id;
-        wlPreferencesRepo.Data.MaxSize = size == null ? 0 : Convert.ToInt32(size.Value);
-        wlPreferencesRepo.Data.InvitesRequired = invites == null ? -1 : Convert.ToInt32(invites.Value);
-        wlPreferencesRepo.Data.InvitesRewardEnabled = wlPreferencesRepo.Data.InvitesRequired > 0;
-        wlPreferencesRepo.Data.PendingRoleId = pendingRole == null ? 0 : ((SocketRole)pendingRole.Value).Id;
-        wlPreferencesRepo.Data.ConfirmedRoleId = confirmedRole == null ? 0 : ((SocketRole)confirmedRole.Value).Id;
-        wlPreferencesRepo.Data.AnnouncementsChannelId = announcements == null ? 0 : ((SocketChannel)announcements.Value).Id;
-
-        var embedBuilder = new EmbedBuilder();
-        embedBuilder.WithColor(Color.Green);
-        embedBuilder.AddField("Whitelist confirmation channel", $"<#{wlPreferencesRepo.Data.ListenChannelId}>");
-        embedBuilder.AddField("Whitelist size", $"{wlPreferencesRepo.Data.MaxSize}");
-        embedBuilder.AddField("Whitelist enable invites rewards", $"{wlPreferencesRepo.Data.InvitesRewardEnabled}");
-        embedBuilder.AddField("Whitelist invites required", $"{wlPreferencesRepo.Data.InvitesRequired}");
-        embedBuilder.AddField("Whitelist pending role", $"<@&{wlPreferencesRepo.Data.PendingRoleId}>");
-        embedBuilder.AddField("Whitelist confirmed role", $"<@&{wlPreferencesRepo.Data.ConfirmedRoleId}>");
-        embedBuilder.AddField("Whitelist announcements channel", $"<#{wlPreferencesRepo.Data.AnnouncementsChannelId}>");
-        await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
-
-        wlPreferencesRepo.SaveAsync();
         await Task.CompletedTask;
     }
 }

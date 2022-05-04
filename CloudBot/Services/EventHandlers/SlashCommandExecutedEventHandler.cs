@@ -8,13 +8,11 @@ public class SlashCommandExecutedEventHandler : IDiscordClientEventHandler
 {
     private readonly IEnumerable<ISlashCommandModule> slashCommandModules;
     private readonly ILogger logger;
-    private readonly IConfiguration configuration;
 
-    public SlashCommandExecutedEventHandler(ILoggerFactory loggerFactory, IEnumerable<ISlashCommandModule> slashCommandModules, IConfiguration configuration)
+    public SlashCommandExecutedEventHandler(ILoggerFactory loggerFactory, IEnumerable<ISlashCommandModule> slashCommandModules)
     {
         this.slashCommandModules = slashCommandModules;
         logger = loggerFactory.CreateLogger($"{GetType().Name}");
-        this.configuration = configuration;
     }
 
     public void RegisterHandlers(DiscordSocketClient client)
