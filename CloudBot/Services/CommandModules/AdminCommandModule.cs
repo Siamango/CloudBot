@@ -59,10 +59,10 @@ public class AdminCommandModule : AbstractCommandModule
                 preferencesRepo.Data.AutoEmojiReactChannels.Add(channelId);
             }
         }
-
         embedBuilder.WithColor(Color.Green);
         embedBuilder.AddField("Success", "Autoreact channels: \n" + string.Join("\n", preferencesRepo.Data.AutoEmojiReactChannels));
         await command.RespondAsync(string.Empty, new Embed[] { embedBuilder.Build() });
+
         preferencesRepo.SaveAsync();
         return;
     }

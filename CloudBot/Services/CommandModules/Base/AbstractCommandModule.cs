@@ -1,12 +1,11 @@
-﻿using Discord;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
 
 namespace CloudBot.Services.CommandModules;
 
 public abstract class AbstractCommandModule : ISlashCommandModule
 {
+    protected readonly ILogger logger;
     private readonly List<SlashCommandDefinition> commands;
-    private readonly ILogger logger;
 
     protected AbstractCommandModule(ILogger logger)
     {

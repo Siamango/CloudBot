@@ -52,6 +52,7 @@ public class MessageEventHandler : IDiscordClientEventHandler
     {
         if (socketMessage is not SocketUserMessage userMessage) return;
         if (userMessage.Author.Id == client.CurrentUser.Id || userMessage.Author.IsBot) return;
-        await HandleAutoReact(socketMessage);
+        _ = HandleAutoReact(socketMessage);
+        await Task.CompletedTask;
     }
 }

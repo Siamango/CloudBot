@@ -21,8 +21,6 @@ public class BotCoreRunner : IRunner
         client = new DiscordSocketClient(new DiscordSocketConfig
         {
             LogGatewayIntentWarnings = false,
-            MessageCacheSize = 128,
-            ConnectionTimeout = 5000,
             HandlerTimeout = null,
             GatewayIntents = GatewayIntents.All,
             LogLevel = LogSeverity.Info,
